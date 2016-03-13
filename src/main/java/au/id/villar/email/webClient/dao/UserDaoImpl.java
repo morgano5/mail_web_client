@@ -1,70 +1,80 @@
 package au.id.villar.email.webClient.dao;
 
 import au.id.villar.email.webClient.model.User;
+import org.springframework.stereotype.Repository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
+import javax.persistence.PersistenceContext;
 
+@Repository
 public class UserDaoImpl implements UserDao {
 
-	private EntityManager entityManager;
+    private EntityManager entityManager;
 
-	private DataSource dataSource;
+    @PersistenceContext
+    public void setEntityManager(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
 
-	public UserDaoImpl(EntityManager entityManager) {
-		this.entityManager = entityManager;
-	}
+    @Override
+    public User find(String username, String password) {
+        try {
+            User user = entityManager
+                    .createNamedQuery("user.findByUsernameAndPassword", User.class)
+                    .setParameter("username", username)
+                    .setParameter("password", password)
+                    .getSingleResult();
+            user.setDao(this);
+            return user;
+        } catch (NoResultException e) {
+            return null;
+        }
+    }
 
-	public UserDaoImpl(DataSource dataSource) {
-		this.dataSource = dataSource;
-	}
+    @Override
+    public User find(String username) {
+        try {
+            User user = (User) entityManager
+                    .createNamedQuery("user.findByUsername")
+                    .setParameter("username", username)
+                    .getSingleResult();
+            user.setDao(this);
+            return user;
+        } catch (NoResultException e) {
+            return null;
+        }
+    }
 
+    @Override
+    public User find(int id) {
+        User user = entityManager.find(User.class, id);
+        if(user != null) user.setDao(this);
+        return user;
+    }
 
-	@Override
-	public boolean authOk(String username, String password) throws SQLException {
+    @Override
+    public User create(String username, String password) {
+        User user = new User();
+        user.setDao(this);
+        user.setUsername(username);
+        user.setPassword(password);
+        entityManager.persist(user);
+        return user;
+    }
 
-		List<Boolean> passedOrEmpty = entityManager.createNamedQuery("user.checkPassword", Boolean.class)
-				.setParameter("username", username)
-				.setParameter("password", password)
-				.setMaxResults(1).getResultList();
+    @Override
+    public void remove(int userId) {
+        User user = find(userId);
+        entityManager.remove(user);
+    }
 
-
-
-
-		boolean r = false;
-		try(
-				Connection connection = dataSource.getConnection();
-				PreparedStatement statement = connection.prepareStatement(
-						"select ENCRYPT(?, substring(password, 1, 19)) = password from user where username = ?")) {
-
-			statement.setString(1, password);
-			statement.setString(2, username);
-
-			try(ResultSet resultSet = statement.executeQuery()) {
-				return resultSet.next() && resultSet.getBoolean(1);
-			}
-		}
-	}
-
-	@Override
-	public void changePassword(String username, String password) throws SQLException {
-		try {
-
-			User user = entityManager.createNamedQuery("user.findByUsername", User.class)
-					.setParameter("username", username).getSingleResult();
-			user.setPassword(password);
-			entityManager.createNamedQuery("user.hashPassword").setParameter("id", user.getId()).executeUpdate();
-			entityManager.clear();
-
-		} catch (NoResultException e) {
-			throw new SQLException(e);
-		}
-
-	}
+    @Override
+    public String hashPassword(String password) {
+        byte[] hash = (byte[])entityManager
+                .createNamedQuery("user.getHashedPassword")
+                .setParameter("password", password)
+                .getSingleResult();
+        return new String(hash);
+    }
 }

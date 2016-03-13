@@ -8,6 +8,7 @@
     <groupId>au.id.villar.email</groupId>
     <artifactId>email-web-client</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>war</packaging>
 
     <properties>
         <org.springframework.version>4.2.1.RELEASE</org.springframework.version>
@@ -25,6 +26,7 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
+<!--
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
@@ -33,11 +35,18 @@
                     <containerConfigXML>${au.id.villar.web.context}</containerConfigXML>
                 </configuration>
             </plugin>
+-->
         </plugins>
 
     </build>
 
     <dependencies>
+
+        <dependency>
+            <groupId>au.id.villar</groupId>
+            <artifactId>morgano-json</artifactId>
+            <version>1.2.1-SNAPSHOT</version>
+        </dependency>
 
         <!-- Spring -->
 
@@ -255,12 +264,59 @@
 
 
 
-
         <dependency>
             <groupId>javax.mail</groupId>
-            <artifactId>mail</artifactId>
-            <version>1.4.7</version>
+            <artifactId>javax.mail-api</artifactId>
+            <version>1.5.5</version>
         </dependency>
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>javax.mail</artifactId>
+            <version>1.5.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>smtp</artifactId>
+            <version>1.5.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>imap</artifactId>
+            <version>1.5.5</version>
+        </dependency>
+
+
+
+
+
+
+
+
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+
+
+
+        <dependency>
+            <groupId>javax.servlet.jsp</groupId>
+            <artifactId>javax.servlet.jsp-api</artifactId>
+            <version>2.3.1</version>
+        </dependency>
+
+
+<!--
+        <dependency>
+            <groupId>org.apache.geronimo.specs</groupId>
+            <artifactId>geronimo-servlet_3.0_spec</artifactId>
+            <version>1.0</version>
+            <scope>provided</scope>
+        </dependency>
+-->
+
+
 
 
 

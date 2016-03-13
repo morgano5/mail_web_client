@@ -1,14 +1,18 @@
 package au.id.villar.email.webClient.dao;
 
 import au.id.villar.email.webClient.model.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.sql.SQLException;
 
 public interface UserDao {
 
-	boolean authOk(String username, String password) throws SQLException;
+    User find(String username, String password);
 
-	void changePassword(String username, String password) throws SQLException;
+    User find(String username);
 
+    User find(int id);
+
+    User create(String username, String password);
+
+    void remove(int userId);
+
+    String hashPassword(String password);
 }
