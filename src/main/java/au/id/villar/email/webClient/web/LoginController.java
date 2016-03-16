@@ -3,6 +3,7 @@ package au.id.villar.email.webClient.web;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -12,19 +13,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Controller
-public class MonitorController {
+@Controller("/tokens")
+public class LoginController {
 
-	public MonitorController() {
-		System.out.println("zz        ");
-	}
 
-	@RequestMapping(value = "/data/test", method = RequestMethod.GET,
+	@RequestMapping(method = RequestMethod.POST,
+			consumes = MediaType.APPLICATION_JSON_VALUE,
 			produces = MediaType.APPLICATION_JSON_VALUE)
-	public @ResponseBody
-	List<Integer> test() {
-		return Arrays.asList(2, 4, 6, 8, 10);
+	public @ResponseBody String createToken(@RequestBody Map<String, String> credentials) {
+		//String username, String password
+		System.out.println(" NEWTOKEN INPUT >>> " + credentials);
+		return "TOMATUTOKEN";
 	}
+
+
+	@RequestMapping(method = RequestMethod.DELETE,
+			consumes = MediaType.APPLICATION_JSON_VALUE,
+			produces = MediaType.APPLICATION_JSON_VALUE)
+	public @ResponseBody String deleteToken(@RequestBody String token) {
+		System.out.println(" DELTOKEN INPUT >>> " + token);
+		return "TOKENBORRADO";
+	}
+
+
 
 //	@RequestMapping(value = "/data/memoryUsage", method = RequestMethod.GET,
 //			produces = MediaType.APPLICATION_JSON_VALUE)
