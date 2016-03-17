@@ -14,6 +14,13 @@ public class Test {
 		String password = "";
 
 
+		Enum x;
+
+		x = Number.ONE;
 	}
+
+	enum Number { ONE, TWO, THREE }
+
+	enum Letter { A, B, C }
 
 }
