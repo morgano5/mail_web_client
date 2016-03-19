@@ -6,4 +6,6 @@ public interface TokenService {
 
     String[] retrievePermissions(String token);
 
+    void removeToken();
+
 }
