@@ -1,11 +1,11 @@
 package au.id.villar.email.webClient.tokens;
 
-public interface TokenService {
+interface TokenService {
 
-    String createToken(String ... pemissions);
+    TokenInfo createToken(String ... permissions);
 
-    String[] retrievePermissions(String token);
+    TokenInfo getTokenInfo(String token);
 
-    void removeToken();
+    void removeToken(String token);
 
 }
