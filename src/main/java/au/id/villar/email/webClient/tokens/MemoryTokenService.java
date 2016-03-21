@@ -1,8 +1,5 @@
 package au.id.villar.email.webClient.tokens;
 
-import java.io.StringReader;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,61 +8,90 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class MemoryTokenService implements TokenService {
 
-    private final Map<String, TokenInfo> tokenPermissions = new HashMap<>();
-    private final Set<String> tokens = tokenPermissions.keySet();
+    private static final int TOKEN_SIZE = 64;
+    private static final int EXPIRY_TIME_MILLIS = 1_200_000;
+    private static final int REFRESH_TIME_MILLIS = 300_000;
+
+    private final Map<String, InternalTokenInfo> tokenInfos = new HashMap<>();
+    private final Set<String> tokens = tokenInfos.keySet();
     private final Object lock = new Object();
 
     @Override
-    public TokenInfo createToken(String... permissions) {
-        String[] copy = new String[permissions.length];
-        System.arraycopy(permissions, 0, copy, 0, permissions.length);
-        for(int i = 0; i < copy.length; i++) copy[i] = copy[i].intern();
-
+    public TokenInfo createToken(String password, String... permissions) {
         InternalTokenInfo token;
+        permissions = copyAndInternalize(permissions);
         synchronized(lock) {
-            String strToken;
-            do strToken = generateToken(); while(tokens.contains(strToken));
-            token = new InternalTokenInfo(strToken, copy);
-            tokenPermissions.put(strToken, token);
+            String strToken = generateToken();
+            token = new InternalTokenInfo(strToken, password, permissions);
+            tokenInfos.put(strToken, token);
         }
         return token;
     }
 
     @Override
     public TokenInfo getTokenInfo(String token) {
-        String[] permissions = null;
+        InternalTokenInfo tokenInfo;
+        long now = System.currentTimeMillis();
         synchronized(lock) {
-            tokenPermissions.get(token)
-            // TODO implement
+            tokenInfo = tokenInfos.get(token);
+
+            if(tokenInfo.getCreationTime() + EXPIRY_TIME_MILLIS > now) {
+                tokenInfos.remove(token);
+                return null;
+            }
+
+            if(tokenInfo.getCreationTime() + REFRESH_TIME_MILLIS > now) {
+                tokenInfos.remove(token);
+                String strToken = generateToken();
+                tokenInfo = tokenInfo.clone(strToken);
+                tokenInfos.put(strToken, tokenInfo);
+            }
         }
-        return permissions;
+        return tokenInfo;
     }
 
     @Override
     public void removeToken(String token) {
         synchronized(lock) {
-            // TODO implement
+            tokenInfos.remove(token);
         }
     }
 
-    @Override
-    public String refresh(String token) {
-        // TODO implement
-        return null;
+    private String generateToken() {
+        synchronized(lock) {
+            String strToken;
+            byte[] randomBytes = new byte[TOKEN_SIZE];
+            do {
+                ThreadLocalRandom.current().nextBytes(randomBytes);
+                strToken = Base64.getEncoder().encodeToString(randomBytes);
+            } while (tokens.contains(strToken));
+            return strToken;
+        }
+    }
+
+    private String[] copyAndInternalize(String[] permissions) {
+        String[] copy = new String[permissions.length];
+        System.arraycopy(permissions, 0, copy, 0, permissions.length);
+        for(int i = 0; i < copy.length; i++) copy[i] = copy[i].intern();
+        return copy;
     }
 
     private class InternalTokenInfo implements TokenInfo {
 
         private String token;
         private String[] permissions;
+        private String password;
+        private long creationTime;
 
-        public InternalTokenInfo(String token, String[] permissions) {
+        private InternalTokenInfo(String token, String password, String[] permissions) {
             this.token = token;
+            this.password = password;
+            this.creationTime = System.currentTimeMillis();
             this.permissions = permissions;
         }
 
         @Override
-        public String getCurrentToken() {
+        public String getToken() {
             return token;
         }
 
@@ -75,22 +101,18 @@ public class MemoryTokenService implements TokenService {
             return false;
         }
 
-        private void setToken(String token) {
-            this.token = token;
+        @Override
+        public String getPassword() {
+            return password;
         }
 
-    }
+        private long getCreationTime() {
+            return creationTime;
+        }
 
-    private static final int TOKEN_RANDOM_PART_SIZE = 64;
-    private static final int LIFE_TIME_MILLIS = 1_200_000;
-    private static final int TIME_REFRES_MILLIS = 300_000;
+        private InternalTokenInfo clone(String newToken) {
+            return new InternalTokenInfo(newToken, password, permissions);
+        }
 
-
-    private String generateToken() {
-        byte[] randomBytes = new byte[TOKEN_RANDOM_PART_SIZE];
-        ThreadLocalRandom.current().nextBytes(randomBytes);
-        long startTime = System.currentTimeMillis();
-        long endTime = startTime + LIFE_TIME_MILLIS;
-        return Base64.getEncoder().encodeToString(randomBytes) + '_' + startTime + '_' + endTime;
     }
 }
