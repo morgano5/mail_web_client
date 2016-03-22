@@ -1,20 +1,37 @@
 package au.id.villar.email.webClient.tokens;
 
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import org.apache.log4j.Logger;
+
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class MemoryTokenService implements TokenService {
 
+    private static final Logger LOG = Logger.getLogger(MemoryTokenService.class);
+
     private static final int TOKEN_SIZE = 64;
-    private static final int EXPIRY_TIME_MILLIS = 1_200_000;
-    private static final int REFRESH_TIME_MILLIS = 300_000;
+
+    private static final int DEFAULT_EXPIRY_TIME_MILLIS = 1_200_000;
+    private static final int DEFAULT_REFRESH_TIME_MILLIS = 300_000;
 
     private final Map<String, InternalTokenInfo> tokenInfos = new HashMap<>();
     private final Set<String> tokens = tokenInfos.keySet();
     private final Object lock = new Object();
+    private final long refreshTimeMillis;
+    private final long expiryTimeMillis;
+
+    public MemoryTokenService() {
+        this(DEFAULT_REFRESH_TIME_MILLIS, DEFAULT_EXPIRY_TIME_MILLIS);
+    }
+
+    public MemoryTokenService(long refreshTimeMillis, long expiryTimeMillis) {
+        this.refreshTimeMillis = refreshTimeMillis;
+        this.expiryTimeMillis = expiryTimeMillis;
+        Thread cleaner = new Thread(new Cleaner());
+        cleaner.setDaemon(true);
+        cleaner.setName("MemoryTokenService Cleaner");
+        cleaner.start();
+    }
 
     @Override
     public TokenInfo createToken(String password, String... permissions) {
@@ -25,6 +42,9 @@ public class MemoryTokenService implements TokenService {
             token = new InternalTokenInfo(strToken, password, permissions);
             tokenInfos.put(strToken, token);
         }
+
+        LOG.info("Token created");
+
         return token;
     }
 
@@ -34,13 +54,14 @@ public class MemoryTokenService implements TokenService {
         long now = System.currentTimeMillis();
         synchronized(lock) {
             tokenInfo = tokenInfos.get(token);
+            if(tokenInfo == null) return null;
 
-            if(tokenInfo.getCreationTime() + EXPIRY_TIME_MILLIS > now) {
+            if(tokenInfo.getCreationTime() + expiryTimeMillis < now) {
                 tokenInfos.remove(token);
                 return null;
             }
 
-            if(tokenInfo.getCreationTime() + REFRESH_TIME_MILLIS > now) {
+            if(tokenInfo.getCreationTime() + refreshTimeMillis < now) {
                 tokenInfos.remove(token);
                 String strToken = generateToken();
                 tokenInfo = tokenInfo.clone(strToken);
@@ -55,6 +76,8 @@ public class MemoryTokenService implements TokenService {
         synchronized(lock) {
             tokenInfos.remove(token);
         }
+
+        LOG.info("Token removed");
     }
 
     private String generateToken() {
@@ -114,5 +137,28 @@ public class MemoryTokenService implements TokenService {
             return new InternalTokenInfo(newToken, password, permissions);
         }
 
+    }
+
+    private class Cleaner implements Runnable {
+
+        @Override
+        public void run() {
+            try {
+                Thread.sleep(expiryTimeMillis * 3 / 2);
+                while(!Thread.interrupted()) {
+                    Thread.sleep(expiryTimeMillis);
+                    LOG.info("Token cleaning up started");
+                    long now = System.currentTimeMillis();
+                    synchronized (lock) {
+                        Iterator<Map.Entry<String, InternalTokenInfo>> iterator = tokenInfos.entrySet().iterator();
+                        while(iterator.hasNext()) {
+                            Map.Entry<String, InternalTokenInfo> entry = iterator.next();
+                            if(entry.getValue().getCreationTime() + expiryTimeMillis < now) iterator.remove();
+                        }
+                    }
+                    LOG.info("Token cleaning up finished");
+                }
+            } catch(InterruptedException ignore) {}
+        }
     }
 }

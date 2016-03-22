@@ -64,6 +64,8 @@ public class User {
     public void setPassword(String password) {
         if(dao != null) {
             this.password = dao.hashPassword(password != null? password: "");
+        } else {
+            throw new RuntimeException("UserDao must be set on the User entity before setting password");
         }
     }
 

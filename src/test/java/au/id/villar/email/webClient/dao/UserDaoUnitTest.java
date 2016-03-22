@@ -37,6 +37,7 @@ public class UserDaoUnitTest {
         assertNotNull(user);
         assertEquals(newUser.getUsername(), user.getUsername());
         assertNull(dao.find("test2"));
+        dao.remove(user.getId());
     }
 
     @Test
