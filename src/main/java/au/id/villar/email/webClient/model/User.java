@@ -1,8 +1,10 @@
 package au.id.villar.email.webClient.model;
 
-import au.id.villar.email.webClient.dao.UserDao;
+import org.apache.commons.codec.digest.Crypt;
 
 import javax.persistence.*;
+import java.util.Random;
+import java.util.Set;
 
 @Entity
 @Table(name = "user")
@@ -12,20 +14,6 @@ import javax.persistence.*;
                 query = "select u from User u where u.username = :username"
         )
 )
-@NamedNativeQueries({
-
-        @NamedNativeQuery(
-                name = "user.findByUsernameAndPassword",
-                query = "SELECT * from user where ENCRYPT(:password, SUBSTRING(password, 1, 19)) = password and username = :username LIMIT 1",
-                resultSetMapping = "user"
-        ),
-
-        @NamedNativeQuery(
-                name = "user.getHashedPassword",
-                query = "SELECT ENCRYPT(:password, CONCAT('$6$', SUBSTRING(SHA(RAND()), -16)))"
-        )
-
-})
 @SqlResultSetMapping(name = "user", entities = @EntityResult(entityClass = User.class))
 public class User {
 
@@ -34,7 +22,7 @@ public class User {
     private String password;
     private boolean active;
     private int version;
-    private UserDao dao;
+    private Set<Role> roles;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -62,11 +50,8 @@ public class User {
     }
 
     public void setPassword(String password) {
-        if(dao != null) {
-            this.password = dao.hashPassword(password != null? password: "");
-        } else {
-            throw new RuntimeException("UserDao must be set on the User entity before setting password");
-        }
+        String salt = String.format("$6$%016X", new Random().nextLong());
+        this.password = Crypt.crypt(password, salt);
     }
 
     @Column(nullable = false)
@@ -87,9 +72,15 @@ public class User {
         this.version = version;
     }
 
-    @Transient
-    public void setDao(UserDao dao) {
-        this.dao = dao;
+    @ElementCollection
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "role")
+    public Set<Role> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = roles;
     }
 
 }

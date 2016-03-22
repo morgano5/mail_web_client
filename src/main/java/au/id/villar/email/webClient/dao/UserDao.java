@@ -14,5 +14,4 @@ public interface UserDao {
 
     void remove(int userId);
 
-    String hashPassword(String password);
 }

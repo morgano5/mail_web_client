@@ -46,11 +46,4 @@ public class UserDaoUnitTest {
         assertNull(user);
     }
 
-    @Test
-    public void hashPassword() {
-        String password = dao.hashPassword("Hi");
-        assertNotNull(password);
-        assertTrue(password.length() > 3);
-        assertEquals("$6$", password.substring(0, 3));
-    }
 }

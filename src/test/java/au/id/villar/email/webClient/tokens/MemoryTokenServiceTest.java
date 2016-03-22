@@ -63,7 +63,7 @@ public class MemoryTokenServiceTest {
         public void run() {
 
             try {
-                TokenInfo token = service.createToken(generateRandomPassword());
+                TokenInfo token = service.createToken("userX", generateRandomPassword());
                 Thread.sleep(REFRESH_TIME / 2);
                 TokenInfo recoveredToken = service.getTokenInfo("xxx");
                 assertNull("Service shouldn't return anything", recoveredToken);

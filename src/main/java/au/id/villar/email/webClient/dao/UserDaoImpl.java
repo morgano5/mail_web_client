@@ -1,14 +1,19 @@
 package au.id.villar.email.webClient.dao;
 
 import au.id.villar.email.webClient.model.User;
+import org.apache.commons.codec.digest.Crypt;
 import org.springframework.stereotype.Repository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.PersistenceContext;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Repository
 public class UserDaoImpl implements UserDao {
+
+    private static final Pattern HASH_PASSWORD_PATTERN = Pattern.compile("^(\\$[^$]+\\$[^$]+)");
 
     private EntityManager entityManager;
 
@@ -20,13 +25,15 @@ public class UserDaoImpl implements UserDao {
     @Override
     public User find(String username, String password) {
         try {
-            User user = entityManager
-                    .createNamedQuery("user.findByUsernameAndPassword", User.class)
-                    .setParameter("username", username)
-                    .setParameter("password", password)
-                    .getSingleResult();
-            user.setDao(this);
-            return user;
+            User user = find(username);
+            if(user == null) return null;
+            Matcher matcher = HASH_PASSWORD_PATTERN.matcher(user.getPassword());
+            if(!matcher.find())
+                throw new RuntimeException(
+                        "Password stored in database doesn't have a proper format for user #" + user.getId());
+            String salt = matcher.group();
+            String hash = Crypt.crypt(password, salt);
+            return hash.equals(user.getPassword())? user: null;
         } catch (NoResultException e) {
             return null;
         }
@@ -35,12 +42,10 @@ public class UserDaoImpl implements UserDao {
     @Override
     public User find(String username) {
         try {
-            User user = (User) entityManager
+            return  (User) entityManager
                     .createNamedQuery("user.findByUsername")
                     .setParameter("username", username)
                     .getSingleResult();
-            user.setDao(this);
-            return user;
         } catch (NoResultException e) {
             return null;
         }
@@ -48,15 +53,12 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public User find(int id) {
-        User user = entityManager.find(User.class, id);
-        if(user != null) user.setDao(this);
-        return user;
+        return entityManager.find(User.class, id);
     }
 
     @Override
     public User create(String username, String password) {
         User user = new User();
-        user.setDao(this);
         user.setUsername(username);
         user.setPassword(password);
         entityManager.persist(user);
@@ -69,12 +71,4 @@ public class UserDaoImpl implements UserDao {
         entityManager.remove(user);
     }
 
-    @Override
-    public String hashPassword(String password) {
-        byte[] hash = (byte[])entityManager
-                .createNamedQuery("user.getHashedPassword")
-                .setParameter("password", password)
-                .getSingleResult();
-        return new String(hash);
-    }
 }

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -17,23 +18,24 @@ import java.util.Map;
 public class LoginController {
 
 
-	@RequestMapping(method = RequestMethod.POST,
-			consumes = MediaType.APPLICATION_JSON_VALUE,
-			produces = MediaType.APPLICATION_JSON_VALUE)
-	public @ResponseBody String createToken(@RequestBody Map<String, String> credentials) {
-		//String username, String password
-		System.out.println(" NEWTOKEN INPUT >>> " + credentials);
-		return "TOMATUTOKEN";
-	}
+    @RequestMapping(method = RequestMethod.POST,
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody String createToken(@RequestBody Map<String, String> credentials, HttpServletResponse response) {
+        //String username, String password
+        response.setHeader("X-Token", "xxx");
+        System.out.println(" NEWTOKEN INPUT >>> " + credentials);
+        return "{\"TOMATUTOKEN\": 0}";
+    }
 
 
-	@RequestMapping(method = RequestMethod.DELETE,
-			consumes = MediaType.APPLICATION_JSON_VALUE,
-			produces = MediaType.APPLICATION_JSON_VALUE)
-	public @ResponseBody String deleteToken(@RequestBody String token) {
-		System.out.println(" DELTOKEN INPUT >>> " + token);
-		return "TOKENBORRADO";
-	}
+    @RequestMapping(method = RequestMethod.DELETE,
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody String deleteToken(@RequestBody String token) {
+        System.out.println(" DELTOKEN INPUT >>> " + token);
+        return "TOKENBORRADO";
+    }
 
 
 

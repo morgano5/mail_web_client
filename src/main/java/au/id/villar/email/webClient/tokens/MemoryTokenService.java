@@ -34,12 +34,12 @@ public class MemoryTokenService implements TokenService {
     }
 
     @Override
-    public TokenInfo createToken(String password, String... permissions) {
+    public TokenInfo createToken(String username, String password, String... permissions) {
         InternalTokenInfo token;
         permissions = copyAndInternalize(permissions);
         synchronized(lock) {
             String strToken = generateToken();
-            token = new InternalTokenInfo(strToken, password, permissions);
+            token = new InternalTokenInfo(strToken, username, password, permissions);
             tokenInfos.put(strToken, token);
         }
 
@@ -103,11 +103,13 @@ public class MemoryTokenService implements TokenService {
 
         private String token;
         private String[] permissions;
+        private String username;
         private String password;
         private long creationTime;
 
-        private InternalTokenInfo(String token, String password, String[] permissions) {
+        private InternalTokenInfo(String token, String username, String password, String[] permissions) {
             this.token = token;
+            this.username = username;
             this.password = password;
             this.creationTime = System.currentTimeMillis();
             this.permissions = permissions;
@@ -125,6 +127,11 @@ public class MemoryTokenService implements TokenService {
         }
 
         @Override
+        public String getUsername() {
+            return username;
+        }
+
+        @Override
         public String getPassword() {
             return password;
         }
@@ -134,7 +141,7 @@ public class MemoryTokenService implements TokenService {
         }
 
         private InternalTokenInfo clone(String newToken) {
-            return new InternalTokenInfo(newToken, password, permissions);
+            return new InternalTokenInfo(newToken, username, password, permissions);
         }
 
     }
