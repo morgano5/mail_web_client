@@ -10,6 +10,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
 
 import javax.servlet.http.HttpServletRequest;
@@ -76,17 +77,26 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     }
 
     private PermissionsInfo scanMethod(Method method, String pathPrefix) {
+        PermissionsInfo info = null;
         boolean isLogin = false;
         boolean isLogout =false;
         Role[] roles = null;
         String path = null;
+        RequestMethod[] reqMethods = null;
         for(Annotation annotation: method.getAnnotations()) {
             if(annotation instanceof Login) isLogin = true;
             if(annotation instanceof Logout) isLogout = true;
             if(annotation instanceof Permissions) roles = ((Permissions)annotation).value();
-            if(annotation instanceof RequestMapping) path = getPath(pathPrefix, path);
+            if(annotation instanceof RequestMapping) {
+                path = getPath(pathPrefix, path);
+                reqMethods = ((RequestMapping)annotation).method();
+            }
         }
-        return isLogin || isLogout || roles != null? new PermissionsInfo(path, isLogin, isLogout, roles): null;
+        if(isLogin || isLogout || roles != null) {
+            if(path == null) path = pathPrefix;
+            info = new PermissionsInfo(path, reqMethods, isLogin, isLogout, roles);
+        }
+        return info;
     }
 
     private String getPath(String prefix, String path) {
@@ -98,12 +108,14 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
     private class PermissionsInfo {
         private String path;
+        private RequestMethod[] methods;
         private boolean login;
         private boolean logout;
         private Role[] roles;
 
-        PermissionsInfo(String path, boolean login, boolean logout, Role[] roles) {
+        public PermissionsInfo(String path, RequestMethod[] methods, boolean login, boolean logout, Role[] roles) {
             this.path = path;
+            this.methods = methods;
             this.login = login;
             this.logout = logout;
             this.roles = roles;
