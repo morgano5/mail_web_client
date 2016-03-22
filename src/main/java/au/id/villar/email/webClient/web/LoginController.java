@@ -1,5 +1,10 @@
 package au.id.villar.email.webClient.web;
 
+import au.id.villar.email.webClient.domain.Role;
+import au.id.villar.email.webClient.service.UserService;
+import au.id.villar.email.webClient.tokens.Login;
+import au.id.villar.email.webClient.tokens.Logout;
+import au.id.villar.email.webClient.tokens.Permissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -17,7 +22,14 @@ import java.util.Map;
 @Controller("/login")
 public class LoginController {
 
+    private UserService userService;
 
+    @Autowired
+    public LoginController(UserService userService) {
+        this.userService = userService;
+    }
+
+    @Login
     @RequestMapping(method = RequestMethod.POST,
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
@@ -28,7 +40,7 @@ public class LoginController {
         return "{\"TOMATUTOKEN\": 0}";
     }
 
-
+    @Logout
     @RequestMapping(method = RequestMethod.DELETE,
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
@@ -37,6 +49,9 @@ public class LoginController {
         return "TOKENBORRADO";
     }
 
+    @Permissions(Role.ADMINISTRATOR)
+    @RequestMapping(path = "/testing", method = RequestMethod.GET)
+    public void testing() {}
 
 
 //	@RequestMapping(value = "/data/memoryUsage", method = RequestMethod.GET,

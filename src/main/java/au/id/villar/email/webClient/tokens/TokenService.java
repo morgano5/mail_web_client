@@ -1,6 +1,6 @@
 package au.id.villar.email.webClient.tokens;
 
-interface TokenService {
+public interface TokenService {
 
     TokenInfo createToken(String username, String password, String ... permissions);
 

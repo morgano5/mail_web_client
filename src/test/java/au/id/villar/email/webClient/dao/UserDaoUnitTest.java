@@ -1,7 +1,7 @@
 package au.id.villar.email.webClient.dao;
 
 import au.id.villar.email.webClient.TestAppConfig;
-import au.id.villar.email.webClient.model.User;
+import au.id.villar.email.webClient.domain.User;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +22,11 @@ public class UserDaoUnitTest {
 
     @Test
     public void authentication() {
-        dao.create("user", "password");
+        User user = dao.create("user", "password");
+
+        assertNull(dao.find("user", "password"));
+
+        user.setActive(true);
 
         assertNotNull(dao.find("user", "password"));
         assertNull(dao.find("user", "password2"));

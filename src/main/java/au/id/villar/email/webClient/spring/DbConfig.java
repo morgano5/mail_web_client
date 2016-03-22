@@ -18,7 +18,7 @@ import javax.sql.DataSource;
 
 @Configuration
 @EnableJpaRepositories(basePackages = "au.id.villar.email.webClient.dao")
-@ComponentScan(basePackages = {"au.id.villar.email.webClient.dao", "au.id.villar.email.webClient.model"} )
+@ComponentScan(basePackages = {"au.id.villar.email.webClient.dao", "au.id.villar.email.webClient.domain"} )
 public class DbConfig {
 
     @Autowired

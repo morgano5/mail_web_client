@@ -1,6 +1,6 @@
 package au.id.villar.email.webClient.dao;
 
-import au.id.villar.email.webClient.model.User;
+import au.id.villar.email.webClient.domain.User;
 import org.apache.commons.codec.digest.Crypt;
 import org.springframework.stereotype.Repository;
 
@@ -26,7 +26,7 @@ public class UserDaoImpl implements UserDao {
     public User find(String username, String password) {
         try {
             User user = find(username);
-            if(user == null) return null;
+            if(user == null || !user.isActive()) return null;
             Matcher matcher = HASH_PASSWORD_PATTERN.matcher(user.getPassword());
             if(!matcher.find())
                 throw new RuntimeException(

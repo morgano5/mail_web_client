@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.model;
+package au.id.villar.email.webClient.domain;
 
 import org.apache.commons.codec.digest.Crypt;
 
@@ -75,6 +75,7 @@ public class User {
     @ElementCollection
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role")
+    @Enumerated(EnumType.STRING)
     public Set<Role> getRoles() {
         return roles;
     }

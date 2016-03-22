@@ -17,7 +17,7 @@
     </context-param>
     <context-param>
         <param-name>contextConfigLocation</param-name>
-        <param-value>au.id.villar.email.webClient.spring.AppConfig</param-value>
+        <param-value>au.id.villar.email.webClient.spring.RootAppConfig</param-value>
     </context-param>
     <listener><listener-class>org.springframework.web.context.ContextLoaderListener</listener-class></listener>
 
@@ -31,7 +31,7 @@
         </init-param>
         <init-param>
             <param-name>contextConfigLocation</param-name>
-            <param-value>au.id.villar.email.webClient.spring.EmptyAppConfig</param-value>
+            <param-value>au.id.villar.email.webClient.spring.ServletAppConfig</param-value>
         </init-param>
     </servlet>
 
