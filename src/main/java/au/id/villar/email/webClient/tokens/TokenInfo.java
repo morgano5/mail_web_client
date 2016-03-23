@@ -4,7 +4,7 @@ public interface TokenInfo {
 
     String getToken();
 
-    boolean containsPermission(String permission);
+    boolean containsPermission(String ... permission);
 
     String getUsername();
 

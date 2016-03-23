@@ -121,8 +121,11 @@ public class MemoryTokenService implements TokenService {
         }
 
         @Override
-        public boolean containsPermission(String permission) {
-            for(String regPermission: permissions) if(regPermission.equals(permission)) return true;
+        public boolean containsPermission(String ... permissions) {
+            for(String permission: permissions)
+                for(String regPermission: this.permissions)
+                    if(regPermission.equals(permission))
+                        return true;
             return false;
         }
 

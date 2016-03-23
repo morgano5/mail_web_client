@@ -2,6 +2,8 @@ package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.domain.Role;
 import au.id.villar.email.webClient.domain.User;
+import au.id.villar.email.webClient.service.UserService;
+import au.id.villar.email.webClient.spring.ServletAppConfig;
 import au.id.villar.email.webClient.tokens.*;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -10,25 +12,37 @@ import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter {
 
+    private static final String CHARSET_NAME = "UTF-8";
     private static final String TOKEN_NAME = "X-VillarMailToken";
+
     private final Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap;
     private final TokenService tokenService;
+    private final UserService userService;
 
-    public AuthenticationHandlerInterceptor(TokenService tokenService, Class<?> configClass) {
+    ServletAppConfig servletAppConfig;
+
+    public AuthenticationHandlerInterceptor(TokenService tokenService, UserService userService, Class<?> configClass, ServletAppConfig servletAppConfig) {
 
         this.tokenService = tokenService;
+        this.userService = userService;
+        this.servletAppConfig = servletAppConfig;
 
         final Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap = new HashMap<>();
 
@@ -48,6 +62,21 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
+
+        Map<RequestMappingInfo, HandlerMethod> m = servletAppConfig.requestMappingHandlerMapping().getHandlerMethods();
+
+        for(Map.Entry entry: m.entrySet()) {
+            System.out.println(">>> >>> >>> " + entry.getKey() + " --- " + entry.getValue());
+        }
+
+
+
+
+
+
+
+
+
         String path = request.getPathInfo();
         RequestMethod method = RequestMethod.valueOf(request.getMethod());
         PermissionsInfo info = getPermissions(path, method);
@@ -61,17 +90,17 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            ModelAndView modelAndView) throws Exception {
-        if(request.getAttribute("login") != null) {
-            String username = (String)request.getAttribute("username");
-            String password = (String)request.getAttribute("password");
-            String[] permissions = (String[])request.getAttribute("permissions");
-            TokenInfo tokenInfo = tokenService.createToken(username, password, permissions);
-//            Cookie tokenCookie = new Cookie(TOKEN_NAME, tokenInfo.getToken());
-//            tokenCookie.setHttpOnly(true);
-//            response.addCookie(tokenCookie);
-//            response.addHeader(TOKEN_NAME, tokenInfo.getToken());
-            response.setStatus(404);
-        }
+//        if(request.getAttribute("login") != null) {
+//            String username = (String)request.getAttribute("username");
+//            String password = (String)request.getAttribute("password");
+//            String[] permissions = (String[])request.getAttribute("permissions");
+//            TokenInfo tokenInfo = tokenService.createToken(username, password, permissions);
+////            Cookie tokenCookie = new Cookie(TOKEN_NAME, tokenInfo.getToken());
+////            tokenCookie.setHttpOnly(true);
+////            response.addCookie(tokenCookie);
+////            response.addHeader(TOKEN_NAME, tokenInfo.getToken());
+//            response.setStatus(404);
+//        }
     }
 
     private boolean handleLogin(HttpServletRequest request) {
@@ -86,7 +115,58 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
     private boolean handlePermissions(HttpServletRequest request, HttpServletResponse response, Object handler,
             Role[] roles) {
-        // TODO
+
+        TokenInfo tokenInfo;
+
+        String token = null;
+        for(Cookie cookie: request.getCookies()) {
+            if(cookie.isHttpOnly() && cookie.getName().equals(TOKEN_NAME)) {
+                token = cookie.getValue();
+                break;
+            }
+        }
+
+        if(token == null) {
+            String authHeader = request.getHeader("Authorization");
+            if(authHeader == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\"" + CHARSET_NAME + "\"");
+                return false;
+            }
+            try {
+                authHeader = new String(Base64.getDecoder().decode(authHeader), CHARSET_NAME);
+            } catch (UnsupportedEncodingException ignore) {
+                throw new RuntimeException("Unknown CHARSET: " + CHARSET_NAME, ignore);
+            }
+            String username = authHeader.substring(0, authHeader.indexOf(':'));
+            String password = authHeader.substring(authHeader.indexOf(':') + 1);
+            User user = userService.find(username, password);
+            if(user == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\"" + CHARSET_NAME + "\"");
+                return false;
+            }
+            List<String> roleList = user.getRoles().stream().map(Role::toString).collect(Collectors.toList());
+            tokenInfo = tokenService.createToken(username, password, roleList.toArray(new String[roleList.size()]));
+        } else {
+            tokenInfo = tokenService.getTokenInfo(token);
+        }
+
+        if(tokenInfo == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\"" + CHARSET_NAME + "\"");
+            return false;
+        }
+
+        List<String> roleList = Arrays.stream(roles).map(Role::toString).collect(Collectors.toList());
+        boolean authorized = tokenInfo.containsPermission(roleList.toArray(new String[roleList.size()]));
+
+        if(!authorized) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\"" + CHARSET_NAME + "\"");
+            return false;
+        }
+
         return true;
     }
 
@@ -132,7 +212,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         boolean isLogin = false;
         boolean isLogout =false;
         Role[] roles = null;
-        String path = null;
+        String[] paths = null;
         RequestMethod[] reqMethods = null;
 
         for(Annotation annotation: method.getAnnotations()) {
@@ -140,14 +220,15 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
             if(annotation instanceof Logout) isLogout = true;
             if(annotation instanceof Permissions) roles = ((Permissions)annotation).value();
             if(annotation instanceof RequestMapping) {
-                path = getPath(pathPrefix, path);
+                paths = ((RequestMapping)annotation).value().clone();
+                for(int i = 0; i < paths.length; i++) paths[i] = getPath(pathPrefix, paths[i]);
                 reqMethods = ((RequestMapping)annotation).method();
             }
         }
 
         if((isLogin || isLogout || roles != null) && reqMethods != null) {
-            if(path == null) path = pathPrefix;
-            for(RequestMethod reqMethod : reqMethods) {
+            if(paths == null) paths = new String[] { pathPrefix };
+            for(RequestMethod reqMethod : reqMethods) for(String path: paths) {
                 Map<RequestMethod, PermissionsInfo> methodsInPath = permissionsInfoMap.get(path);
                 if(methodsInPath == null) {
                     methodsInPath = new HashMap<>();

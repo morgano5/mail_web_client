@@ -19,7 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Controller("/login")
+@Controller
+@RequestMapping("/login")
 public class LoginController {
 
     private UserService userService;
@@ -61,8 +62,10 @@ public class LoginController {
     }
 
     @Permissions(Role.ADMINISTRATOR)
-    @RequestMapping(path = "/testing", method = RequestMethod.GET)
-    public void testing() {}
+    @RequestMapping(value = "/testing", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody String testing() {
+        return "{\"TEST\": \"OK\"}";
+    }
 
 
 //	@RequestMapping(value = "/data/memoryUsage", method = RequestMethod.GET,
