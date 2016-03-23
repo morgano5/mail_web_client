@@ -4,8 +4,6 @@ import au.id.villar.email.webClient.domain.User;
 
 public interface UserDao {
 
-    User find(String username, String password);
-
     User find(String username);
 
     User find(int id);

@@ -1,6 +1,7 @@
 package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.domain.Role;
+import au.id.villar.email.webClient.domain.User;
 import au.id.villar.email.webClient.service.UserService;
 import au.id.villar.email.webClient.tokens.Login;
 import au.id.villar.email.webClient.tokens.Logout;
@@ -13,11 +14,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.HttpServletResponse;
-import java.util.Arrays;
-import java.util.HashMap;
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller("/login")
 public class LoginController {
@@ -33,11 +33,22 @@ public class LoginController {
     @RequestMapping(method = RequestMethod.POST,
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public @ResponseBody String createToken(@RequestBody Map<String, String> credentials, HttpServletResponse response) {
-        //String username, String password
-        response.setHeader("X-Token", "xxx");
-        System.out.println(" NEWTOKEN INPUT >>> " + credentials);
-        return "{\"TOMATUTOKEN\": 0}";
+    public @ResponseBody String createToken(@RequestBody Map<String, String> credentials, HttpServletRequest request) {
+
+        String username = credentials.get("username");
+        String password = credentials.get("password");
+        if(username == null | password == null) throw new UnauthorizedException();
+
+        User user = userService.find(username, password);
+        if(user == null) throw new UnauthorizedException();
+        List<String> permissionList = user.getRoles().stream().map(Role::toString).collect(Collectors.toList());
+        String[] permissions = permissionList.toArray(new String[permissionList.size()]);
+
+        request.setAttribute("username", username);
+        request.setAttribute("password", password);
+        request.setAttribute("permissions", permissions);
+
+        return "{\"errorCode\": \"OK\"}";
     }
 
     @Logout

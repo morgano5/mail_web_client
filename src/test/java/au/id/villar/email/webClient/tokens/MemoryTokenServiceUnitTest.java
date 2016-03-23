@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class, classes = TestAppConfig.class)
-public class MemoryTokenServiceTest {
+public class MemoryTokenServiceUnitTest {
 
     private static final long REFRESH_TIME = 1000;
     private static final long EXPIRE_TIME = 2000;

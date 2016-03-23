@@ -1,9 +1,8 @@
 package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.domain.Role;
-import au.id.villar.email.webClient.tokens.Login;
-import au.id.villar.email.webClient.tokens.Logout;
-import au.id.villar.email.webClient.tokens.Permissions;
+import au.id.villar.email.webClient.domain.User;
+import au.id.villar.email.webClient.tokens.*;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.context.annotation.ComponentScan;
@@ -11,78 +10,131 @@ import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter {
 
-    public void init(Class<?> configClass) {
+    private static final String TOKEN_NAME = "X-VillarMailToken";
+    private final Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap;
+    private final TokenService tokenService;
 
-        List<PermissionsInfo> permissionsInfoList = Arrays.stream(configClass.getAnnotations())
+    public AuthenticationHandlerInterceptor(TokenService tokenService, Class<?> configClass) {
+
+        this.tokenService = tokenService;
+
+        final Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap = new HashMap<>();
+
+        Arrays.stream(configClass.getAnnotations())
                 .filter(annotation -> annotation instanceof ComponentScan)
                 .flatMap(annotation -> Arrays.stream(((ComponentScan)annotation).basePackages()))
-                .map(this::scanPackage)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
+                .forEach(packageName -> scanPackage(packageName, permissionsInfoMap));
 
-        permissionsInfoList = permissionsInfoList;
+        Map<String, Map<RequestMethod, PermissionsInfo>> immutableRequests = new HashMap<>();
+        for(Map.Entry<String, Map<RequestMethod, PermissionsInfo>> entry: permissionsInfoMap.entrySet()) {
+            immutableRequests.put(entry.getKey(), Collections.unmodifiableMap(entry.getValue()));
+        }
+
+        this.permissionsInfoMap = Collections.unmodifiableMap(immutableRequests);
     }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        return super.preHandle(request, response, handler);
+        String path = request.getPathInfo();
+        RequestMethod method = RequestMethod.valueOf(request.getMethod());
+        PermissionsInfo info = getPermissions(path, method);
+
+        if(info == null) return true;
+        if(info.login) return handleLogin(request);
+        if(info.logout) return handleLogout(request, response, handler);
+        return handlePermissions(request, response, handler, info.roles);
     }
 
-    private List<PermissionsInfo> scanPackage(String packageName) {
-        ClassPathScanningCandidateComponentProvider scanner =
-                new ClassPathScanningCandidateComponentProvider(true);
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+                           ModelAndView modelAndView) throws Exception {
+        if(request.getAttribute("login") != null) {
+            String username = (String)request.getAttribute("username");
+            String password = (String)request.getAttribute("password");
+            String[] permissions = (String[])request.getAttribute("permissions");
+            TokenInfo tokenInfo = tokenService.createToken(username, password, permissions);
+//            Cookie tokenCookie = new Cookie(TOKEN_NAME, tokenInfo.getToken());
+//            tokenCookie.setHttpOnly(true);
+//            response.addCookie(tokenCookie);
+//            response.addHeader(TOKEN_NAME, tokenInfo.getToken());
+            response.setStatus(404);
+        }
+    }
+
+    private boolean handleLogin(HttpServletRequest request) {
+        request.setAttribute("login", "true");
+        return true;
+    }
+
+    private boolean handleLogout(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // TODO
+        return true;
+    }
+
+    private boolean handlePermissions(HttpServletRequest request, HttpServletResponse response, Object handler,
+            Role[] roles) {
+        // TODO
+        return true;
+    }
+
+    private PermissionsInfo getPermissions(String path, RequestMethod method) {
+        Map<RequestMethod, PermissionsInfo> methodsForPath = permissionsInfoMap.get(path);
+        if(methodsForPath == null) return null;
+        return methodsForPath.get(method);
+    }
+
+    private void scanPackage(String packageName, Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap) {
+
+        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(true);
 
         scanner.addIncludeFilter(new AnnotationTypeFilter(Login.class));
         scanner.addIncludeFilter(new AnnotationTypeFilter(Logout.class));
         scanner.addIncludeFilter(new AnnotationTypeFilter(Permissions.class));
 
-        return scanner.findCandidateComponents(packageName).stream()
-                .map(beanDef -> scanClass(beanDef.getBeanClassName()))
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
+        for(BeanDefinition bean: scanner.findCandidateComponents(packageName)) {
+            scanClass(bean.getBeanClassName(), permissionsInfoMap);
+        }
     }
 
-    private List<PermissionsInfo> scanClass(String className) {
+    private void scanClass(String className, Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap) {
         try {
-            class Ref { private String pathPrefix; }
-            final Ref ref = new Ref();
-
+            String pathPrefix = null;
             Class<?> type = Class.forName(className);
             for(Annotation annotation: type.getAnnotations()) {
                 if(annotation instanceof Controller) {
-                    ref.pathPrefix = ((Controller)annotation).value();
+                    pathPrefix = ((Controller)annotation).value();
                     break;
                 }
             }
-            return Arrays.stream(type.getMethods()).map(method -> scanMethod(method, ref.pathPrefix))
-                    .filter(p -> p != null).collect(Collectors.toList());
+            for(Method method: type.getMethods()) scanMethod(method, pathPrefix, permissionsInfoMap);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(
                     "Unlikely error, if this exception is thrown something is wrong with the Spring libraries", e);
         }
     }
 
-    private PermissionsInfo scanMethod(Method method, String pathPrefix) {
-        PermissionsInfo info = null;
+    private void scanMethod(Method method, String pathPrefix,
+               Map<String, Map<RequestMethod, PermissionsInfo>> permissionsInfoMap) {
+
         boolean isLogin = false;
         boolean isLogout =false;
         Role[] roles = null;
         String path = null;
         RequestMethod[] reqMethods = null;
+
         for(Annotation annotation: method.getAnnotations()) {
             if(annotation instanceof Login) isLogin = true;
             if(annotation instanceof Logout) isLogout = true;
@@ -92,11 +144,22 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
                 reqMethods = ((RequestMapping)annotation).method();
             }
         }
-        if(isLogin || isLogout || roles != null) {
+
+        if((isLogin || isLogout || roles != null) && reqMethods != null) {
             if(path == null) path = pathPrefix;
-            info = new PermissionsInfo(path, reqMethods, isLogin, isLogout, roles);
+            for(RequestMethod reqMethod : reqMethods) {
+                Map<RequestMethod, PermissionsInfo> methodsInPath = permissionsInfoMap.get(path);
+                if(methodsInPath == null) {
+                    methodsInPath = new HashMap<>();
+                    permissionsInfoMap.put(path, methodsInPath);
+                }
+                if(methodsInPath.containsKey(reqMethod))
+                    throw new RuntimeException("Another permission for same path and http method was detected: "
+                            + method.getDeclaringClass().getName() + "." + method.getName());
+                methodsInPath.put(reqMethod, new PermissionsInfo(isLogin, isLogout, roles));
+            }
+
         }
-        return info;
     }
 
     private String getPath(String prefix, String path) {
@@ -107,19 +170,16 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     }
 
     private class PermissionsInfo {
-        private String path;
-        private RequestMethod[] methods;
-        private boolean login;
-        private boolean logout;
-        private Role[] roles;
+        private final boolean login;
+        private final boolean logout;
+        private final Role[] roles;
 
-        public PermissionsInfo(String path, RequestMethod[] methods, boolean login, boolean logout, Role[] roles) {
-            this.path = path;
-            this.methods = methods;
+        PermissionsInfo(boolean login, boolean logout, Role[] roles) {
             this.login = login;
             this.logout = logout;
             this.roles = roles;
         }
+
     }
 
 }

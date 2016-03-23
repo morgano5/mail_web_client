@@ -1,9 +1,6 @@
 package au.id.villar.email.webClient.domain;
 
-import org.apache.commons.codec.digest.Crypt;
-
 import javax.persistence.*;
-import java.util.Random;
 import java.util.Set;
 
 @Entity
@@ -50,8 +47,7 @@ public class User {
     }
 
     public void setPassword(String password) {
-        String salt = String.format("$6$%016X", new Random().nextLong());
-        this.password = Crypt.crypt(password, salt);
+        this.password = password;
     }
 
     @Column(nullable = false)

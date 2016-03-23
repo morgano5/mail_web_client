@@ -1,5 +1,8 @@
 package au.id.villar.email.webClient.spring;
 
+import au.id.villar.email.webClient.tokens.MemoryTokenService;
+import au.id.villar.email.webClient.tokens.TokenService;
+import au.id.villar.email.webClient.web.AuthenticationHandlerInterceptor;
 import au.id.villar.email.webClient.web.JSONMessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -16,11 +19,17 @@ import java.util.List;
 @ComponentScan(basePackages = "au.id.villar.email.webClient.web")
 public class ServletAppConfig extends /*WebMvcConfigurationSupport*/ WebMvcConfigurerAdapter {
 
-    @Bean
+//    @Bean
     public JSONMessageConverter getJsonMessageConverter() {
         return new JSONMessageConverter();
     }
 
+//    @Bean
+    public TokenService getTokenService() {
+        return new MemoryTokenService();
+    }
+
+    @Override
     public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
         converters.add(getJsonMessageConverter());
 //		addDefaultHttpMessageConverters(converters);
@@ -28,5 +37,6 @@ public class ServletAppConfig extends /*WebMvcConfigurationSupport*/ WebMvcConfi
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new AuthenticationHandlerInterceptor(getTokenService(), ServletAppConfig.class));
     }
 }

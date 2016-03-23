@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.dao;
+package au.id.villar.email.webClient.service;
 
 import au.id.villar.email.webClient.TestAppConfig;
 import au.id.villar.email.webClient.domain.User;
@@ -10,31 +10,28 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class, classes = TestAppConfig.class)
 @Transactional
-public class UserDaoUnitTest {
+public class UserServiceUnitTest {
 
     @Autowired
-    UserDao dao;
+    UserService service;
 
     @Test
-    public void createUserAndFindByUsername() {
-        User newUser = dao.create("test", "password");
-        User user = dao.find("test");
+    public void authentication() {
+        User user = service.create("user", "password", false);
 
-        assertNotNull(user);
-        assertEquals(newUser.getUsername(), user.getUsername());
-        assertNull(dao.find("test2"));
-        dao.remove(user.getId());
-    }
+        assertNull(service.find("user", "password"));
 
-    @Test
-    public void find() {
-        User user = dao.find(-1);
-        assertNull(user);
+        user.setActive(true);
+
+        assertNotNull(service.find("user", "password"));
+        assertNull(service.find("user", "password2"));
+        assertNull(service.find("user2", "password"));
     }
 
 }
