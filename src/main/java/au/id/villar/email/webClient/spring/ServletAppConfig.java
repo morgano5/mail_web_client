@@ -45,8 +45,7 @@ public class ServletAppConfig extends WebMvcConfigurationSupport /*WebMvcConfigu
 
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AuthenticationHandlerInterceptor(getTokenService(), userService,
-                ServletAppConfig.class, this));
+        registry.addInterceptor(new AuthenticationHandlerInterceptor(getTokenService(), userService, this));
     }
 
 //    @Bean

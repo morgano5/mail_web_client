@@ -8,6 +8,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -63,7 +64,7 @@ public class MemoryTokenServiceUnitTest {
         public void run() {
 
             try {
-                TokenInfo token = service.createToken("userX", generateRandomPassword());
+                TokenInfo token = service.createToken("userX", generateRandomPassword(), Collections.emptyList());
                 Thread.sleep(REFRESH_TIME / 2);
                 TokenInfo recoveredToken = service.getTokenInfo("xxx");
                 assertNull("Service shouldn't return anything", recoveredToken);

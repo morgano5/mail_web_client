@@ -23,10 +23,7 @@ public class AuthenticationHandlerInterceptorUnitTest {
     @Transactional
     public void basicTest() {
         AuthenticationHandlerInterceptor interceptor =
-                new AuthenticationHandlerInterceptor(
-                        new MemoryTokenService(),
-                        userService,
-                        ServletAppConfig.class, null);
+                new AuthenticationHandlerInterceptor(new MemoryTokenService(), userService, null);
     }
 
 }

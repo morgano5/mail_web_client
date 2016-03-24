@@ -1,5 +1,6 @@
 package au.id.villar.email.webClient.tokens;
 
+import au.id.villar.email.webClient.domain.Role;
 import org.apache.log4j.Logger;
 
 import java.util.*;
@@ -11,8 +12,8 @@ public class MemoryTokenService implements TokenService {
 
     private static final int TOKEN_SIZE = 64;
 
-    private static final int DEFAULT_EXPIRY_TIME_MILLIS = 1_200_000;
-    private static final int DEFAULT_REFRESH_TIME_MILLIS = 300_000;
+    private static final long DEFAULT_EXPIRY_TIME_MILLIS = 1_200_000;
+    private static final long DEFAULT_REFRESH_TIME_MILLIS = 300_000;
 
     private final Map<String, InternalTokenInfo> tokenInfos = new HashMap<>();
     private final Set<String> tokens = tokenInfos.keySet();
@@ -34,12 +35,11 @@ public class MemoryTokenService implements TokenService {
     }
 
     @Override
-    public TokenInfo createToken(String username, String password, String... permissions) {
+    public TokenInfo createToken(String username, String password, Collection<Role> roles) {
         InternalTokenInfo token;
-        permissions = copyAndInternalize(permissions);
         synchronized(lock) {
             String strToken = generateToken();
-            token = new InternalTokenInfo(strToken, username, password, permissions);
+            token = new InternalTokenInfo(strToken, username, password, roles);
             tokenInfos.put(strToken, token);
         }
 
@@ -80,6 +80,11 @@ public class MemoryTokenService implements TokenService {
         LOG.info("Token removed");
     }
 
+    @Override
+    public long getExpiryTimeMillis() {
+        return expiryTimeMillis;
+    }
+
     private String generateToken() {
         synchronized(lock) {
             String strToken;
@@ -92,27 +97,20 @@ public class MemoryTokenService implements TokenService {
         }
     }
 
-    private String[] copyAndInternalize(String[] permissions) {
-        String[] copy = new String[permissions.length];
-        System.arraycopy(permissions, 0, copy, 0, permissions.length);
-        for(int i = 0; i < copy.length; i++) copy[i] = copy[i].intern();
-        return copy;
-    }
-
     private class InternalTokenInfo implements TokenInfo {
 
         private String token;
-        private String[] permissions;
+        private List<Role> roles;
         private String username;
         private String password;
         private long creationTime;
 
-        private InternalTokenInfo(String token, String username, String password, String[] permissions) {
+        private InternalTokenInfo(String token, String username, String password, Collection<Role> roles) {
             this.token = token;
             this.username = username;
             this.password = password;
             this.creationTime = System.currentTimeMillis();
-            this.permissions = permissions;
+            this.roles = new ArrayList<>(roles);
         }
 
         @Override
@@ -121,11 +119,8 @@ public class MemoryTokenService implements TokenService {
         }
 
         @Override
-        public boolean containsPermission(String ... permissions) {
-            for(String permission: permissions)
-                for(String regPermission: this.permissions)
-                    if(regPermission.equals(permission))
-                        return true;
+        public boolean containsAtLeastOne(Collection<Role> roles) {
+            for(Role role: roles) if(this.roles.contains(role)) return true;
             return false;
         }
 
@@ -139,12 +134,13 @@ public class MemoryTokenService implements TokenService {
             return password;
         }
 
-        private long getCreationTime() {
+        @Override
+        public long getCreationTime() {
             return creationTime;
         }
 
         private InternalTokenInfo clone(String newToken) {
-            return new InternalTokenInfo(newToken, username, password, permissions);
+            return new InternalTokenInfo(newToken, username, password, roles);
         }
 
     }
