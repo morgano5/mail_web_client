@@ -12,7 +12,7 @@ public class Test {
 	public static void main(String[] args) throws Exception {
 
 		String username = "";
-		String password = "";
+		String password = "test";
 
 
 		Enum x;

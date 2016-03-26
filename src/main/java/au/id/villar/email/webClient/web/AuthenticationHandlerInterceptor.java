@@ -32,7 +32,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private final UserService userService;
     private final ServletAppConfig servletAppConfig;
 
-    private Map<Method, PermissionsInfo> permissionsInfoMap;
+    private Map<Method, AuthInfo> permissionsInfoMap;
 
     public AuthenticationHandlerInterceptor(TokenService tokenService, UserService userService,
             ServletAppConfig servletAppConfig) {
@@ -50,17 +50,19 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         if(permissionsInfoMap == null) createInfoMap();
 
-        PermissionsInfo info = permissionsInfoMap.get(((HandlerMethod)handler).getMethod());
+        AuthInfo info = permissionsInfoMap.get(((HandlerMethod)handler).getMethod());
 
         if(info == null) return true;
-        if(info.login) return handleLogin(request);
-        if(info.logout) return handleLogout(request, response);
-        return handlePermissions(request, response, info.roles);
+        if(info instanceof LoginInfo) return handleLogin(request);
+        if(info instanceof LogoutInfo) return handleLogout(request, response);
+        return handlePermissions(request, response, ((AuthorizationInfo)info).roles);
     }
 
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            ModelAndView modelAndView) throws Exception {
+
+        if(!(handler instanceof HandlerMethod)) return;
 
         if(request.getAttribute("logout") != null) {
             modelAndView.clear();
@@ -82,7 +84,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
     private void createInfoMap() {
 
-        final Map<Method, PermissionsInfo> permissionsInfoMap = new HashMap<>();
+        final Map<Method, AuthInfo> permissionsInfoMap = new HashMap<>();
 
         Map<RequestMappingInfo, HandlerMethod> handlerMethods =
                 servletAppConfig.requestMappingHandlerMapping().getHandlerMethods();
@@ -93,29 +95,36 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
     }
 
-    private void scanForAnnotations(HandlerMethod handlerMethod,
-            Map<Method, PermissionsInfo> permissionsInfoMap) {
-
-        boolean isLogin = false;
-        boolean isLogout =false;
-        Role[] roles = null;
+    private void scanForAnnotations(HandlerMethod handlerMethod, Map<Method, AuthInfo> permissionsInfoMap) {
 
         for(Annotation annotation: handlerMethod.getMethod().getAnnotations()) {
-            if(annotation instanceof Login) isLogin = true;
-            if(annotation instanceof Logout) isLogout = true;
-            if(annotation instanceof Permissions) roles = ((Permissions)annotation).value();
+            if(annotation instanceof Login) {
+                checkNonExistance(handlerMethod);
+                permissionsInfoMap.put(handlerMethod.getMethod(), new LoginInfo());
+                return;
+            }
+            if(annotation instanceof Logout) {
+                checkNonExistance(handlerMethod);
+                permissionsInfoMap.put(handlerMethod.getMethod(), new LogoutInfo());
+                return;
+            }
+            if(annotation instanceof Permissions) {
+                checkNonExistance(handlerMethod);
+                Role[] roles = ((Permissions)annotation).value();
+                Collection<Role> roleCollection = roles != null? Arrays.asList(roles): Collections.emptyList();
+                permissionsInfoMap.put(handlerMethod.getMethod(), new AuthorizationInfo(roleCollection));
+            }
         }
+    }
 
-        if(isLogin || isLogout || roles != null) {
-            if(permissionsInfoMap.containsKey(handlerMethod.getMethod()))
-                throw new RuntimeException("Another permission for same HandlerMethod was detected: "
-                        + handlerMethod.getBeanType().getName() + "." + handlerMethod.getMethod().getName());
-
-            Collection<Role> roleCollection = roles != null? Arrays.asList(roles): Collections.emptyList();
-            permissionsInfoMap.put(handlerMethod.getMethod(), new PermissionsInfo(isLogin, isLogout, roleCollection));
-        }
+    private void checkNonExistance(HandlerMethod handlerMethod) {
+        if(permissionsInfoMap.containsKey(handlerMethod.getMethod()))
+            throw new RuntimeException("Another permission for same HandlerMethod was detected: "
+                    + handlerMethod.getBeanType().getName() + "." + handlerMethod.getMethod().getName());
 
     }
+
+//    private
 
     private boolean handleLogin(HttpServletRequest request) {
         request.setAttribute("login", "true");
@@ -209,14 +218,16 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         response.addCookie(tokenCookie);
     }
 
-    private class PermissionsInfo {
-        private final boolean login;
-        private final boolean logout;
+    private abstract class AuthInfo {}
+
+    private class LoginInfo extends AuthInfo {}
+
+    private class LogoutInfo extends AuthInfo {}
+
+    private class AuthorizationInfo extends AuthInfo {
         private final Collection<Role> roles;
 
-        PermissionsInfo(boolean login, boolean logout, Collection<Role> roles) {
-            this.login = login;
-            this.logout = logout;
+        AuthorizationInfo(Collection<Role> roles) {
             this.roles = roles;
         }
 
