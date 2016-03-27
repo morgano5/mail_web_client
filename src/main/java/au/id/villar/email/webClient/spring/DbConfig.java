@@ -17,8 +17,8 @@ import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 
 @Configuration
-@EnableJpaRepositories(basePackages = "au.id.villar.email.webClient.dao")
-@ComponentScan(basePackages = {"au.id.villar.email.webClient.dao", "au.id.villar.email.webClient.domain"} )
+@EnableJpaRepositories("au.id.villar.email.webClient.dao")
+@ComponentScan({"au.id.villar.email.webClient.dao", "au.id.villar.email.webClient.domain"} )
 public class DbConfig {
 
     @Autowired

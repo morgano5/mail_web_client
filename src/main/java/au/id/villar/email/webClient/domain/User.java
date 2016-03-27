@@ -5,12 +5,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "user")
-@NamedQueries(
-        @NamedQuery(
-                name = "user.findByUsername",
-                query = "select u from User u where u.username = :username"
-        )
-)
+@NamedQueries(@NamedQuery(name = "user.findByUsername", query = "select u from User u where u.username = :username"))
 @SqlResultSetMapping(name = "user", entities = @EntityResult(entityClass = User.class))
 public class User {
 

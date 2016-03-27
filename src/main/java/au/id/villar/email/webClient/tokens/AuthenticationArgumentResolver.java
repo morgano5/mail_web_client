@@ -10,13 +10,16 @@ public class AuthenticationArgumentResolver implements HandlerMethodArgumentReso
 
     @Override
     public boolean supportsParameter(MethodParameter methodParameter) {
-        return methodParameter.getDeclaringClass() == UserPasswordHolder.class;
+        return methodParameter.getParameterType() == UserPasswordHolder.class;
     }
 
     @Override
     public Object resolveArgument(MethodParameter methodParameter, ModelAndViewContainer modelAndViewContainer,
             NativeWebRequest nativeWebRequest, WebDataBinderFactory webDataBinderFactory) throws Exception {
-        return new UserPasswordHolder();
+        Object userPassword = nativeWebRequest.getAttribute(Constants.USER_PASSWORD_ATTR_NAME,
+                NativeWebRequest.SCOPE_REQUEST);
+        if(userPassword != null) modelAndViewContainer.addAttribute(userPassword);
+        return userPassword;
     }
 
 }

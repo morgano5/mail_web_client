@@ -13,6 +13,7 @@ import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,16 +24,13 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private static final Pattern BASIC_AUTH_VALUE_PATTERN =
             Pattern.compile("[Bb][Aa][Ss][Ii][Cc] +([0-9A-Za-z+/=.-_:]+)");
 
-    private static final String CHARSET_NAME = "UTF-8";
-    private static final String TOKEN_NAME = "X-VillarMailToken";
-
     private final TokenService tokenService;
     private final PermissionsResolver permissionsResolver;
     private final Class<? extends Annotation> permissionsAnnotationClass;
     private final String permissionsAttribute;
     private final WebMvcConfigurationSupport servletAppConfig;
 
-    private Map<Method, AuthInfo> permissionsInfoMap;
+    private Map<Method, AuthorizationInfo> permissionsInfoMap;
     private Map<Method, AuthInfo> loginLogoutInfoMap;
 
     public AuthenticationHandlerInterceptor(TokenService tokenService, PermissionsResolver permissionsResolver,
@@ -52,11 +50,15 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         if(!(handler instanceof HandlerMethod)) return true;
 
+        HandlerMethod handlerMethod = (HandlerMethod)handler;
+
         if(permissionsInfoMap == null) createInfoMap();
 
-        AuthInfo info = permissionsInfoMap.get(((HandlerMethod)handler).getMethod());
+        AuthInfo loginLogoutInfo = loginLogoutInfoMap.get(handlerMethod.getMethod());
+        if(loginLogoutInfo != null) { handleLoginLogout(request, loginLogoutInfo); return true; }
 
-        return info == null || handlePermissions(request, response, ((AuthorizationInfo)info).roles);
+        AuthorizationInfo info = permissionsInfoMap.get(handlerMethod.getMethod());
+        return info == null || handlePermissions(request, response, info);
     }
 
     @Override
@@ -66,13 +68,13 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         if(!(handler instanceof HandlerMethod)) return;
 
         AuthInfo info = loginLogoutInfoMap.get(((HandlerMethod)handler).getMethod());
-        if(info instanceof LoginInfo) handleLogin(response, modelAndView);
-        if(info instanceof LogoutInfo) handleLogout(request, response, modelAndView);
+        if(info instanceof LoginInfo) postHandleLogin(response, modelAndView);
+        if(info instanceof LogoutInfo) postHandleLogout(request, response, modelAndView);
     }
 
     private void createInfoMap() {
 
-        final Map<Method, AuthInfo> permissionsInfoMap = new HashMap<>();
+        final Map<Method, AuthorizationInfo> permissionsInfoMap = new HashMap<>();
         final Map<Method, AuthInfo> loginLogoutInfoMap = new HashMap<>();
         Map<RequestMappingInfo, HandlerMethod> handlerMethods =
                 servletAppConfig.requestMappingHandlerMapping().getHandlerMethods();
@@ -86,28 +88,38 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
     }
 
-    private void scanForAnnotations(HandlerMethod handlerMethod, Map<Method, AuthInfo> permissionsInfoMap,
+    private void scanForAnnotations(HandlerMethod handlerMethod, Map<Method, AuthorizationInfo> permissionsInfoMap,
             Map<Method, AuthInfo> loginLogoutInfoMap) {
+
+        boolean hasUserPasswordHolder = false;
+        Parameter[] parameters = handlerMethod.getMethod().getParameters();
+        for(Parameter parameter : parameters) {
+            if(parameter.getType() == UserPasswordHolder.class) {
+                hasUserPasswordHolder = true;
+                break;
+            }
+        }
 
         for(Annotation annotation: handlerMethod.getMethod().getAnnotations()) {
             if(annotation instanceof Login) {
                 checkNonExistance(handlerMethod, permissionsInfoMap);
-                loginLogoutInfoMap.put(handlerMethod.getMethod(), new LoginInfo());
+                loginLogoutInfoMap.put(handlerMethod.getMethod(), new LoginInfo(hasUserPasswordHolder));
                 return;
             }
             if(annotation instanceof Logout) {
                 checkNonExistance(handlerMethod, permissionsInfoMap);
-                loginLogoutInfoMap.put(handlerMethod.getMethod(), new LogoutInfo());
+                loginLogoutInfoMap.put(handlerMethod.getMethod(), new LogoutInfo(hasUserPasswordHolder));
                 return;
             }
             if(permissionsAnnotationClass.isAssignableFrom(annotation.getClass())) {
                 checkNonExistance(handlerMethod, permissionsInfoMap);
-                permissionsInfoMap.put(handlerMethod.getMethod(), new AuthorizationInfo(getRoles(annotation)));
+                permissionsInfoMap.put(handlerMethod.getMethod(),
+                        new AuthorizationInfo(getRoles(annotation), hasUserPasswordHolder));
             }
         }
     }
 
-    private void checkNonExistance(HandlerMethod handlerMethod, Map<Method, AuthInfo> permissionsInfoMap) {
+    private void checkNonExistance(HandlerMethod handlerMethod, Map<Method, AuthorizationInfo> permissionsInfoMap) {
         if(permissionsInfoMap.containsKey(handlerMethod.getMethod()))
             throw new RuntimeException("Another permission for same HandlerMethod was detected: "
                     + handlerMethod.getBeanType().getName() + "." + handlerMethod.getMethod().getName());
@@ -140,7 +152,42 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         }
     }
 
-    private void handleLogin(HttpServletResponse response, ModelAndView modelAndView) {
+    private void handleLoginLogout(HttpServletRequest request, AuthInfo authInfo) {
+        if(!authInfo.hasUserPasswordHolder) return;
+
+        UserPasswordHolder userPassword = new UserPasswordHolder();
+        GET_USER_PASSWORD: {
+            String token = getToken(request);
+            if(token == null) break GET_USER_PASSWORD;
+            TokenInfo tokenInfo = tokenService.getTokenInfo(token);
+            if(tokenInfo == null) break GET_USER_PASSWORD;
+            userPassword.setUsername(tokenInfo.getUsername());
+            userPassword.setPassword(tokenInfo.getPassword());
+        }
+        request.setAttribute(Constants.USER_PASSWORD_ATTR_NAME, userPassword);
+    }
+
+    private boolean handlePermissions(HttpServletRequest request, HttpServletResponse response,
+            AuthorizationInfo authInfo) {
+
+        TokenInfo tokenInfo = generateTokenInfo(request);
+        if(tokenInfo == null) {
+            setStatus401Unauthorized(response);
+            return false;
+        }
+
+        boolean authorized = tokenInfo.containsAtLeastOne(authInfo.roles);
+        if(!authorized) {
+            setStatus401Unauthorized(response);
+            return false;
+        }
+
+        addCookie(tokenInfo, response);
+        if(authInfo.hasUserPasswordHolder) setUserPasswordHolder(tokenInfo, request);
+        return true;
+    }
+
+    private void postHandleLogin(HttpServletResponse response, ModelAndView modelAndView) {
 
         UserPasswordHolder userPassword = null;
         for(Object param: modelAndView.getModel().values()) {
@@ -162,30 +209,18 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         addCookie(tokenService.createToken(userPassword.getUsername(), userPassword.getPassword(), roles), response);
     }
 
-    private void handleLogout(HttpServletRequest request, HttpServletResponse response, ModelAndView modelAndView) {
+    private void postHandleLogout(HttpServletRequest request, HttpServletResponse response, ModelAndView modelAndView) {
         String token = getToken(request);
         if(token != null) tokenService.removeToken(token);
         removeCookie(response);
         modelAndView.clear();
     }
 
-    private boolean handlePermissions(HttpServletRequest request, HttpServletResponse response,
-            Collection<String> roles) {
-
-        TokenInfo tokenInfo = generateTokenInfo(request);
-        if(tokenInfo == null) {
-            setStatus401Unauthorized(response);
-            return false;
-        }
-
-        boolean authorized = tokenInfo.containsAtLeastOne(roles);
-        if(!authorized) {
-            setStatus401Unauthorized(response);
-            return false;
-        }
-
-        addCookie(tokenInfo, response);
-        return true;
+    private void setUserPasswordHolder(TokenInfo tokenInfo, HttpServletRequest request) {
+        UserPasswordHolder userPassword = new UserPasswordHolder();
+        userPassword.setUsername(tokenInfo.getUsername());
+        userPassword.setPassword(tokenInfo.getPassword());
+        request.setAttribute(Constants.USER_PASSWORD_ATTR_NAME, userPassword);
     }
 
     private TokenInfo generateTokenInfo(HttpServletRequest request) {
@@ -201,9 +236,9 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
             if(!matcher.find()) throw new RuntimeException(
                     "Unexpected header value for Authentication: " + authHeader);
             authHeader = matcher.group(1);
-            authHeader = new String(Base64.getDecoder().decode(authHeader), CHARSET_NAME);
+            authHeader = new String(Base64.getDecoder().decode(authHeader), Constants.CHARSET_NAME);
         } catch (UnsupportedEncodingException ignore) {
-            throw new RuntimeException("Unknown CHARSET: " + CHARSET_NAME, ignore);
+            throw new RuntimeException("Unknown CHARSET: " + Constants.CHARSET_NAME, ignore);
         }
 
         String username = authHeader.substring(0, authHeader.indexOf(':'));
@@ -217,7 +252,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         Cookie[] cookies = request.getCookies();
         if(cookies != null) {
             for (Cookie cookie : cookies) {
-                if (cookie.getName().equals(TOKEN_NAME)) {
+                if (cookie.getName().equals(Constants.TOKEN_NAME)) {
                     return cookie.getValue();
                 }
             }
@@ -228,11 +263,12 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private void setStatus401Unauthorized(HttpServletResponse response) {
         removeCookie(response);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\"" + CHARSET_NAME + "\"");
+        response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\""
+                + Constants.CHARSET_NAME + "\"");
     }
 
     private void addCookie(TokenInfo tokenInfo, HttpServletResponse response) {
-        Cookie tokenCookie = new Cookie(TOKEN_NAME, tokenInfo.getToken());
+        Cookie tokenCookie = new Cookie(Constants.TOKEN_NAME, tokenInfo.getToken());
         int maxAge = (int)((tokenInfo.getCreationTime() - System.currentTimeMillis()
                 + tokenService.getExpiryTimeMillis()) / 1000);
         tokenCookie.setMaxAge(maxAge);
@@ -241,25 +277,39 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     }
 
     private void removeCookie(HttpServletResponse response) {
-        Cookie tokenCookie = new Cookie(TOKEN_NAME, "");
+        Cookie tokenCookie = new Cookie(Constants.TOKEN_NAME, "");
         tokenCookie.setMaxAge(0);
         tokenCookie.setHttpOnly(true);
         response.addCookie(tokenCookie);
     }
 
-    private abstract class AuthInfo {}
+    private abstract class AuthInfo {
+        final boolean hasUserPasswordHolder;
 
-    private class LoginInfo extends AuthInfo {}
+        public AuthInfo(boolean hasUserPasswordHolder) {
+            this.hasUserPasswordHolder = hasUserPasswordHolder;
+        }
+    }
 
-    private class LogoutInfo extends AuthInfo {}
+    private class LoginInfo extends AuthInfo {
+        public LoginInfo(boolean hasUserPasswordHolder) {
+            super(hasUserPasswordHolder);
+        }
+    }
+
+    private class LogoutInfo extends AuthInfo {
+        public LogoutInfo(boolean hasUserPasswordHolder) {
+            super(hasUserPasswordHolder);
+        }
+    }
 
     private class AuthorizationInfo extends AuthInfo {
-        private final Collection<String> roles;
+        final Collection<String> roles;
 
-        AuthorizationInfo(Collection<String> roles) {
+        public AuthorizationInfo(Collection<String> roles, boolean hasUserPasswordHolder) {
+            super(hasUserPasswordHolder);
             this.roles = roles;
         }
-
     }
 
 }

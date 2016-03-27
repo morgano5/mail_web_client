@@ -24,35 +24,14 @@ public class ServletAppConfig extends WebMvcConfigurationSupport {
     @Autowired
     private UserService userService;
 
-//    @Bean
-    public JSONMessageConverter getJsonMessageConverter() {
-        return new JSONMessageConverter();
-    }
-
-//    @Bean
-    public TokenService tokenService() {
-        return new MemoryTokenService();
-    }
-
-    private PermissionsResolver permissionsResolver() {
-        return ((username, password) -> {
-            User user = userService.find(username, password);
-            if(user == null) return null;
-            return user.getRoles().stream().map(Role::name).collect(Collectors.toSet());
-        });
-    }
-
     @Override
     protected void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
-        converters.add(getJsonMessageConverter());
-//		addDefaultHttpMessageConverters(converters);
+        converters.add(jsonMessageConverter());
     }
 
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
-        AuthenticationHandlerInterceptor  interceptor = new AuthenticationHandlerInterceptor(
-                tokenService(), permissionsResolver(), Permissions.class, "value", this);
-        registry.addInterceptor(interceptor);
+        registry.addInterceptor(authenticationHandlerInterceptor());
     }
 
     @Override
@@ -60,8 +39,25 @@ public class ServletAppConfig extends WebMvcConfigurationSupport {
         argumentResolvers.add(new AuthenticationArgumentResolver());
     }
 
-    //    @Bean
-//    public RequestMappingHandlerMapping requestMappingHandlerMapping() {
-//        return super.requestMappingHandlerMapping();
-//    }
+    public JSONMessageConverter jsonMessageConverter() {
+        return new JSONMessageConverter();
+    }
+
+    public AuthenticationHandlerInterceptor authenticationHandlerInterceptor() {
+        return new AuthenticationHandlerInterceptor(tokenService(), permissionsResolver(),
+                Permissions.class, "value", this);
+    }
+
+    public TokenService tokenService() {
+        return new MemoryTokenService();
+    }
+
+    public PermissionsResolver permissionsResolver() {
+        return ((username, password) -> {
+            User user = userService.find(username, password);
+            if(user == null) return null;
+            return user.getRoles().stream().map(Role::name).collect(Collectors.toSet());
+        });
+    }
+
 }
