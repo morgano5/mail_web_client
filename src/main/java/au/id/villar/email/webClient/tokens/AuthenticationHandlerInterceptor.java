@@ -1,12 +1,9 @@
-package au.id.villar.email.webClient.web;
+package au.id.villar.email.webClient.tokens;
 
 import au.id.villar.email.webClient.domain.Role;
-import au.id.villar.email.webClient.domain.User;
-import au.id.villar.email.webClient.service.UserService;
-import au.id.villar.email.webClient.spring.ServletAppConfig;
-import au.id.villar.email.webClient.tokens.*;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 
@@ -29,16 +26,17 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private static final String TOKEN_NAME = "X-VillarMailToken";
 
     private final TokenService tokenService;
-    private final UserService userService;
-    private final ServletAppConfig servletAppConfig;
+    private final PermissionsResolver permissionsResolver;
+    private final WebMvcConfigurationSupport servletAppConfig;
 
     private Map<Method, AuthInfo> permissionsInfoMap;
+    private Map<Method, AuthInfo> loginLogoutInfoMap;
 
-    public AuthenticationHandlerInterceptor(TokenService tokenService, UserService userService,
-            ServletAppConfig servletAppConfig) {
+    public AuthenticationHandlerInterceptor(TokenService tokenService, PermissionsResolver permissionsResolver,
+            WebMvcConfigurationSupport servletAppConfig) {
 
         this.tokenService = tokenService;
-        this.userService = userService;
+        this.permissionsResolver = permissionsResolver;
         this.servletAppConfig = servletAppConfig;
     }
 
@@ -52,10 +50,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         AuthInfo info = permissionsInfoMap.get(((HandlerMethod)handler).getMethod());
 
-        if(info == null) return true;
-        if(info instanceof LoginInfo) return handleLogin(request);
-        if(info instanceof LogoutInfo) return handleLogout(request, response);
-        return handlePermissions(request, response, ((AuthorizationInfo)info).roles);
+        return info == null || handlePermissions(request, response, ((AuthorizationInfo)info).roles);
     }
 
     @Override
@@ -64,52 +59,43 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         if(!(handler instanceof HandlerMethod)) return;
 
-        if(request.getAttribute("logout") != null) {
-            modelAndView.clear();
-            return;
-        }
-
-        if(request.getAttribute("login") == null) return;
-
-        User user = (User)request.getAttribute("user");
-        if(user != null) {
-            String password = request.getAttribute("password").toString();
-            addCookie(tokenService.createToken(user.getUsername(), password, user.getRoles()), response);
-        } else {
-            setStatus401Unauthorized(response);
-        }
-
-        modelAndView.clear();
+        AuthInfo info = loginLogoutInfoMap.get(((HandlerMethod)handler).getMethod());
+        if(info instanceof LoginInfo) handleLogin(response, modelAndView);
+        if(info instanceof LogoutInfo) handleLogout(request, response, modelAndView);
     }
 
     private void createInfoMap() {
 
         final Map<Method, AuthInfo> permissionsInfoMap = new HashMap<>();
-
+        final Map<Method, AuthInfo> loginLogoutInfoMap = new HashMap<>();
         Map<RequestMappingInfo, HandlerMethod> handlerMethods =
                 servletAppConfig.requestMappingHandlerMapping().getHandlerMethods();
 
-        for(HandlerMethod handlerMethod: handlerMethods.values()) scanForAnnotations(handlerMethod, permissionsInfoMap);
+        for(HandlerMethod handlerMethod: handlerMethods.values()) {
+            scanForAnnotations(handlerMethod, permissionsInfoMap, loginLogoutInfoMap);
+        }
 
         this.permissionsInfoMap = permissionsInfoMap;
+        this.loginLogoutInfoMap = loginLogoutInfoMap;
 
     }
 
-    private void scanForAnnotations(HandlerMethod handlerMethod, Map<Method, AuthInfo> permissionsInfoMap) {
+    private void scanForAnnotations(HandlerMethod handlerMethod, Map<Method, AuthInfo> permissionsInfoMap,
+            Map<Method, AuthInfo> loginLogoutInfoMap) {
 
         for(Annotation annotation: handlerMethod.getMethod().getAnnotations()) {
             if(annotation instanceof Login) {
-                checkNonExistance(handlerMethod);
-                permissionsInfoMap.put(handlerMethod.getMethod(), new LoginInfo());
+                checkNonExistance(handlerMethod, permissionsInfoMap);
+                loginLogoutInfoMap.put(handlerMethod.getMethod(), new LoginInfo());
                 return;
             }
             if(annotation instanceof Logout) {
-                checkNonExistance(handlerMethod);
-                permissionsInfoMap.put(handlerMethod.getMethod(), new LogoutInfo());
+                checkNonExistance(handlerMethod, permissionsInfoMap);
+                loginLogoutInfoMap.put(handlerMethod.getMethod(), new LogoutInfo());
                 return;
             }
             if(annotation instanceof Permissions) {
-                checkNonExistance(handlerMethod);
+                checkNonExistance(handlerMethod, permissionsInfoMap);
                 Role[] roles = ((Permissions)annotation).value();
                 Collection<Role> roleCollection = roles != null? Arrays.asList(roles): Collections.emptyList();
                 permissionsInfoMap.put(handlerMethod.getMethod(), new AuthorizationInfo(roleCollection));
@@ -117,26 +103,40 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
         }
     }
 
-    private void checkNonExistance(HandlerMethod handlerMethod) {
+    private void checkNonExistance(HandlerMethod handlerMethod, Map<Method, AuthInfo> permissionsInfoMap) {
         if(permissionsInfoMap.containsKey(handlerMethod.getMethod()))
             throw new RuntimeException("Another permission for same HandlerMethod was detected: "
                     + handlerMethod.getBeanType().getName() + "." + handlerMethod.getMethod().getName());
 
     }
 
-//    private
+    private void handleLogin(HttpServletResponse response, ModelAndView modelAndView) {
 
-    private boolean handleLogin(HttpServletRequest request) {
-        request.setAttribute("login", "true");
-        return true;
+        UserPasswordHolder userPassword = null;
+        for(Object param: modelAndView.getModel().values()) {
+            if(param instanceof UserPasswordHolder) {
+                userPassword = (UserPasswordHolder)param;
+                break;
+            }
+        }
+
+        modelAndView.clear();
+
+        Set<Role> roles;
+        if(userPassword == null ||
+                (roles = permissionsResolver.resolve(userPassword.getUsername(), userPassword.getPassword())) == null) {
+            setStatus401Unauthorized(response);
+            return;
+        }
+
+        addCookie(tokenService.createToken(userPassword.getUsername(), userPassword.getPassword(), roles), response);
     }
 
-    private boolean handleLogout(HttpServletRequest request, HttpServletResponse response) {
-        request.setAttribute("logout", "true");
+    private void handleLogout(HttpServletRequest request, HttpServletResponse response, ModelAndView modelAndView) {
         String token = getToken(request);
         if(token != null) tokenService.removeToken(token);
         removeCookie(response);
-        return true;
+        modelAndView.clear();
     }
 
     private boolean handlePermissions(HttpServletRequest request, HttpServletResponse response,
@@ -178,10 +178,9 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         String username = authHeader.substring(0, authHeader.indexOf(':'));
         String password = authHeader.substring(authHeader.indexOf(':') + 1);
-        User user = userService.find(username, password);
-        if(user == null) return null;
+        Set<Role> roles = permissionsResolver.resolve(username, password);
 
-        return tokenService.createToken(username, password, user.getRoles());
+        return roles == null? null: tokenService.createToken(username, password, roles);
     }
 
     private String getToken(HttpServletRequest request) {

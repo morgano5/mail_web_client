@@ -1,28 +1,22 @@
 package au.id.villar.email.webClient.spring;
 
+import au.id.villar.email.webClient.domain.User;
 import au.id.villar.email.webClient.service.UserService;
-import au.id.villar.email.webClient.tokens.MemoryTokenService;
-import au.id.villar.email.webClient.tokens.TokenService;
-import au.id.villar.email.webClient.web.AuthenticationHandlerInterceptor;
+import au.id.villar.email.webClient.tokens.*;
 import au.id.villar.email.webClient.web.JSONMessageConverter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.List;
-import java.util.Map;
 
 @Configuration
-//@EnableWebMvc
 @ComponentScan(basePackages = "au.id.villar.email.webClient.web")
-public class ServletAppConfig extends WebMvcConfigurationSupport /*WebMvcConfigurerAdapter*/ {
+public class ServletAppConfig extends WebMvcConfigurationSupport {
 
     @Autowired
     private UserService userService;
@@ -33,8 +27,15 @@ public class ServletAppConfig extends WebMvcConfigurationSupport /*WebMvcConfigu
     }
 
 //    @Bean
-    public TokenService getTokenService() {
+    public TokenService tokenService() {
         return new MemoryTokenService();
+    }
+
+    private PermissionsResolver permissionsResolver() {
+        return ((username, password) -> {
+            User user;
+            return ((user = userService.find(username, password)) != null)? user.getRoles(): null;
+        });
     }
 
     @Override
@@ -45,10 +46,15 @@ public class ServletAppConfig extends WebMvcConfigurationSupport /*WebMvcConfigu
 
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AuthenticationHandlerInterceptor(getTokenService(), userService, this));
+        registry.addInterceptor(new AuthenticationHandlerInterceptor(tokenService(), permissionsResolver(), this));
     }
 
-//    @Bean
+    @Override
+    protected void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+        argumentResolvers.add(new AuthenticationArgumentResolver());
+    }
+
+    //    @Bean
 //    public RequestMappingHandlerMapping requestMappingHandlerMapping() {
 //        return super.requestMappingHandlerMapping();
 //    }

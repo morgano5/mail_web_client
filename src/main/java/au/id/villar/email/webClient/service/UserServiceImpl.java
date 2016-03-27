@@ -29,6 +29,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public User find(String username, String password) {
         try {
+            if(password == null) return null;
             User user = dao.find(username);
             if(user == null || !user.isActive()) return null;
             Matcher matcher = HASH_PASSWORD_PATTERN.matcher(user.getPassword());

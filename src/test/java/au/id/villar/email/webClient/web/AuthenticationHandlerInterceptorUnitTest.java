@@ -2,7 +2,7 @@ package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.TestAppConfig;
 import au.id.villar.email.webClient.service.UserService;
-import au.id.villar.email.webClient.spring.ServletAppConfig;
+import au.id.villar.email.webClient.tokens.AuthenticationHandlerInterceptor;
 import au.id.villar.email.webClient.tokens.MemoryTokenService;
 import org.junit.Test;
 import org.junit.runner.RunWith;
