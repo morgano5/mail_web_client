@@ -1,6 +1,5 @@
 package au.id.villar.email.webClient.tokens;
 
-import au.id.villar.email.webClient.domain.Role;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
@@ -12,10 +11,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter {
 
@@ -27,16 +28,21 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
     private final TokenService tokenService;
     private final PermissionsResolver permissionsResolver;
+    private final Class<? extends Annotation> permissionsAnnotationClass;
+    private final String permissionsAttribute;
     private final WebMvcConfigurationSupport servletAppConfig;
 
     private Map<Method, AuthInfo> permissionsInfoMap;
     private Map<Method, AuthInfo> loginLogoutInfoMap;
 
     public AuthenticationHandlerInterceptor(TokenService tokenService, PermissionsResolver permissionsResolver,
+            Class<? extends Annotation> permissionsAnnotationClass, String permissionsAttribute,
             WebMvcConfigurationSupport servletAppConfig) {
 
         this.tokenService = tokenService;
         this.permissionsResolver = permissionsResolver;
+        this.permissionsAnnotationClass = permissionsAnnotationClass;
+        this.permissionsAttribute = permissionsAttribute;
         this.servletAppConfig = servletAppConfig;
     }
 
@@ -94,11 +100,9 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
                 loginLogoutInfoMap.put(handlerMethod.getMethod(), new LogoutInfo());
                 return;
             }
-            if(annotation instanceof Permissions) {
+            if(permissionsAnnotationClass.isAssignableFrom(annotation.getClass())) {
                 checkNonExistance(handlerMethod, permissionsInfoMap);
-                Role[] roles = ((Permissions)annotation).value();
-                Collection<Role> roleCollection = roles != null? Arrays.asList(roles): Collections.emptyList();
-                permissionsInfoMap.put(handlerMethod.getMethod(), new AuthorizationInfo(roleCollection));
+                permissionsInfoMap.put(handlerMethod.getMethod(), new AuthorizationInfo(getRoles(annotation)));
             }
         }
     }
@@ -108,6 +112,32 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
             throw new RuntimeException("Another permission for same HandlerMethod was detected: "
                     + handlerMethod.getBeanType().getName() + "." + handlerMethod.getMethod().getName());
 
+    }
+
+    private Collection<String> getRoles(Annotation annotation) {
+
+        Method attribute = null;
+        for(Method method: annotation.getClass().getMethods()) {
+            if(method.getName().equals(permissionsAttribute)) {
+                attribute = method;
+                break;
+            }
+        }
+        if(attribute == null) {
+            throw new RuntimeException("Attribute '" + permissionsAttribute + "' not found in annotation '"
+                    + annotation.getClass().getName() + "'");
+        }
+
+        try {
+
+            return Arrays.stream((Object[])attribute.invoke(annotation))
+                    .map(Object::toString)
+                    .collect(Collectors.toList());
+
+        } catch (IllegalAccessException | InvocationTargetException | ClassCastException | NullPointerException e) {
+            throw new RuntimeException("Value for attribute '" + permissionsAttribute
+                    + "' is not the correct type or there is no access to it", e);
+        }
     }
 
     private void handleLogin(HttpServletResponse response, ModelAndView modelAndView) {
@@ -122,7 +152,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         modelAndView.clear();
 
-        Set<Role> roles;
+        Set<String> roles;
         if(userPassword == null ||
                 (roles = permissionsResolver.resolve(userPassword.getUsername(), userPassword.getPassword())) == null) {
             setStatus401Unauthorized(response);
@@ -140,7 +170,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     }
 
     private boolean handlePermissions(HttpServletRequest request, HttpServletResponse response,
-            Collection<Role> roles) {
+            Collection<String> roles) {
 
         TokenInfo tokenInfo = generateTokenInfo(request);
         if(tokenInfo == null) {
@@ -178,7 +208,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
 
         String username = authHeader.substring(0, authHeader.indexOf(':'));
         String password = authHeader.substring(authHeader.indexOf(':') + 1);
-        Set<Role> roles = permissionsResolver.resolve(username, password);
+        Set<String> roles = permissionsResolver.resolve(username, password);
 
         return roles == null? null: tokenService.createToken(username, password, roles);
     }
@@ -224,9 +254,9 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private class LogoutInfo extends AuthInfo {}
 
     private class AuthorizationInfo extends AuthInfo {
-        private final Collection<Role> roles;
+        private final Collection<String> roles;
 
-        AuthorizationInfo(Collection<Role> roles) {
+        AuthorizationInfo(Collection<String> roles) {
             this.roles = roles;
         }
 

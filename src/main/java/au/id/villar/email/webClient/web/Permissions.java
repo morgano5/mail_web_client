@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.tokens;
+package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.domain.Role;
 

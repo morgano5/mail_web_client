@@ -1,6 +1,5 @@
 package au.id.villar.email.webClient.tokens;
 
-import au.id.villar.email.webClient.domain.Role;
 import org.apache.log4j.Logger;
 
 import java.util.*;
@@ -35,7 +34,7 @@ public class MemoryTokenService implements TokenService {
     }
 
     @Override
-    public TokenInfo createToken(String username, String password, Collection<Role> roles) {
+    public TokenInfo createToken(String username, String password, Collection<String> roles) {
         InternalTokenInfo token;
         synchronized(lock) {
             String strToken = generateToken();
@@ -100,12 +99,12 @@ public class MemoryTokenService implements TokenService {
     private class InternalTokenInfo implements TokenInfo {
 
         private String token;
-        private List<Role> roles;
+        private List<String> roles;
         private String username;
         private String password;
         private long creationTime;
 
-        private InternalTokenInfo(String token, String username, String password, Collection<Role> roles) {
+        private InternalTokenInfo(String token, String username, String password, Collection<String> roles) {
             this.token = token;
             this.username = username;
             this.password = password;
@@ -119,8 +118,8 @@ public class MemoryTokenService implements TokenService {
         }
 
         @Override
-        public boolean containsAtLeastOne(Collection<Role> roles) {
-            for(Role role: roles) if(this.roles.contains(role)) return true;
+        public boolean containsAtLeastOne(Collection<String> roles) {
+            for(String role: roles) if(this.roles.contains(role)) return true;
             return false;
         }
 
