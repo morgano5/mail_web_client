@@ -26,7 +26,7 @@ public class ServletAppConfig extends WebMvcConfigurationSupport {
 
     @Override
     protected void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
-        converters.add(jsonMessageConverter());
+        converters.add(new JSONMessageConverter());
     }
 
     @Override
@@ -39,20 +39,16 @@ public class ServletAppConfig extends WebMvcConfigurationSupport {
         argumentResolvers.add(new AuthenticationArgumentResolver());
     }
 
-    public JSONMessageConverter jsonMessageConverter() {
-        return new JSONMessageConverter();
-    }
-
-    public AuthenticationHandlerInterceptor authenticationHandlerInterceptor() {
+    private AuthenticationHandlerInterceptor authenticationHandlerInterceptor() {
         return new AuthenticationHandlerInterceptor(tokenService(), permissionsResolver(),
                 Permissions.class, "value", this);
     }
 
-    public TokenService tokenService() {
+    private TokenService tokenService() {
         return new MemoryTokenService();
     }
 
-    public PermissionsResolver permissionsResolver() {
+    private PermissionsResolver permissionsResolver() {
         return ((username, password) -> {
             User user = userService.find(username, password);
             if(user == null) return null;

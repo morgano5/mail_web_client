@@ -286,19 +286,19 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private abstract class AuthInfo {
         final boolean hasUserPasswordHolder;
 
-        public AuthInfo(boolean hasUserPasswordHolder) {
+        AuthInfo(boolean hasUserPasswordHolder) {
             this.hasUserPasswordHolder = hasUserPasswordHolder;
         }
     }
 
     private class LoginInfo extends AuthInfo {
-        public LoginInfo(boolean hasUserPasswordHolder) {
+        LoginInfo(boolean hasUserPasswordHolder) {
             super(hasUserPasswordHolder);
         }
     }
 
     private class LogoutInfo extends AuthInfo {
-        public LogoutInfo(boolean hasUserPasswordHolder) {
+        LogoutInfo(boolean hasUserPasswordHolder) {
             super(hasUserPasswordHolder);
         }
     }
@@ -306,7 +306,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private class AuthorizationInfo extends AuthInfo {
         final Collection<String> roles;
 
-        public AuthorizationInfo(Collection<String> roles, boolean hasUserPasswordHolder) {
+        AuthorizationInfo(Collection<String> roles, boolean hasUserPasswordHolder) {
             super(hasUserPasswordHolder);
             this.roles = roles;
         }
