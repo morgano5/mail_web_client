@@ -1,0 +1,64 @@
+.mail-load-waiting {
+    position: relative;
+    width: 99vw;
+    height: 99vh;
+    text-align: center;
+}
+
+.mail-load-waiting img {
+    max-height: 100%;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+}
+
+.mail-login {
+    position: absolute;
+    display: /* table /*/ none /**/;
+    width: 99vw;
+    height: 99vh;
+}
+
+.mail-login > div {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.mail-login > div > div {
+    margin-left: auto;
+    margin-right: auto;
+    width: 300px;
+    background-color: #cdf;
+    padding: 3px;
+}
+
+.mail-login-label {
+    display: inline-block;
+    width: 100px;
+    font-family: sans-serif;
+    color: #444;
+}
+
+.mail-login-field {
+    display: inline-block;
+    padding: 5px;
+}
+
+.mail-login-input {
+    width: 180px;
+}
+
+.mail-login-logo {
+    background-color: #fff;
+}
+
+.mail-main {
+    display: none;
+}

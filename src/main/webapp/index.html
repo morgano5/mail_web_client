@@ -3,39 +3,42 @@
 <html>
 
 <head>
-	<meta charset="UTF-8">
-	<title>Mail</title>
+    <meta charset="UTF-8">
+    <title>Mail</title>
 
-	<!--
-	<script type="application/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular.min.js"></script>
-	-->
-	<script type="text/javascript" src="js/angular.min.js"></script>
+    <script type="text/javascript" src="js/angular.min.js"></script>
+    <script type="text/javascript" src="js/main.js"></script>
 
-	<style>
-		.mail-login, .mail-main { display: none; }
-
-		.mail-load-waiting {
-			width: 100vw;
-			height: 100vh;
-			/*width: 100%;*/
-			/*height: 100%;*/
-			text-align: center;
-
-		}
-
-	</style>
+    <link rel="stylesheet" href="css/main.css" type="text/css">
 
 </head>
 
 <body>
 
-	<div class="mail-load-waiting">
-		<img src="image/loading-bar.gif">
-	</div>
+    <!-- Loading view -->
+    <div class="mail-load-waiting">
+        <img src="image/loading-bar.gif">
+    </div>
 
-	<div class="mail-login"></div>
+    <!-- Login view -->
+    <div class="mail-login">
+        <div>
+            <div>
+                <div class="mail-login-logo"><img src="image/logo.png"></div>
+                <div>
+                    <div class="mail-login-label"><label for="f1">Username</label></div>
+                    <div class="mail-login-field"><input id="f1" type="text" class="mail-login-input"></div>
+                </div>
+                <div>
+                    <div class="mail-login-label"><label for="f2">Password</label></div>
+                    <div class="mail-login-field"><input id="f2" type="password" class="mail-login-input"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-	<div class="mail-main"></div>
+    <!-- main view -->
+    <div class="mail-main"></div>
 
 </body>
 
