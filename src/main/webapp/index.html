@@ -4,172 +4,38 @@
 
 <head>
 	<meta charset="UTF-8">
-	<title>JSON test</title>
+	<title>Mail</title>
 
-	<script type="text/javascript" src="js/ajax.js"></script>
-	<script type="text/javascript" src="js/api.js"></script>
+	<!--
+	<script type="application/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.3/angular.min.js"></script>
+	-->
+	<script type="text/javascript" src="js/angular.min.js"></script>
 
-	<script type="text/javascript">
+	<style>
+		.mail-login, .mail-main { display: none; }
 
-		function send(url, content, headers, method) {
+		.mail-load-waiting {
+			width: 100vw;
+			height: 100vh;
+			/*width: 100%;*/
+			/*height: 100%;*/
+			text-align: center;
 
-			var httpReq = null;
-
-			// Get XMLHttpRequest object
-			if(window.XMLHttpRequest)
-				httpReq = new XMLHttpRequest();
-			if(httpReq == null && window.ActiveXObject) {
-				try {
-					httpReq = new ActiveXObject("Msxml2.XMLHTTP");
-				} catch(e) {
-					httpReq = null;
-				}
-			}
-			if(httpReq == null) {
-				try {
-					httpReq = new ActiveXObject("Microsoft.XMLHTTP");
-				} catch(e) {
-					httpReq = null;
-				}
-			}
-			if(httpReq == null)
-				return null;
-
-			// Send data
-			try {
-				httpReq.open(method, url, false);
-				var x;
-				for(x = 0; x < headers.length; x++) {
-					httpReq.setRequestHeader(headers[x].name, headers[x].value);
-				}
-				httpReq.send(content);
-			} catch (e) {
-				alert(e);
-				return null;
-			}
-
-			return httpReq;
 		}
 
-		function send_onClick() {
-			var url = document.getElementById("url").value;
-			var method = document.getElementById("method").value;
-			var headers = document.getElementById("headers").value;
-			var content = document.getElementById("content").value;
-			var headerRowsList = headers.split("\n");
-			var headerRow;
-			var headersList = [];
-			var x;
-			for(x = 0; x < headerRowsList.length; x++) {
-				headerRow = headerRowsList[x];
-				var colonPos = headerRow.indexOf(":");
-				if(colonPos == -1) {
-					continue;
-				}
-				var name = headerRow.substring(0, colonPos).trim();
-				var value = headerRow.substring(colonPos + 1).trim();
-				headersList.push({name: name, value: value});
-			}
-			var result = send(url, content, headersList, method);
-			if(result != null) {
-				var txt = "HTTP STATUS: " + result.status + " " + result.statusText + "\n" +
-						result.getAllResponseHeaders() + "\n\n" + result.responseText;
-				while(txt.indexOf("<") != -1) txt = txt.replace("<", "&lt;");
-				while(txt.indexOf(">") != -1) txt = txt.replace(">", "&gt;");
-				document.getElementById("result").innerHTML = txt;
-			}
-		}
-
-		function encode() {
-			document.getElementById("codified").value = encodeURIComponent((document.getElementById("clearText").value));
-		}
-
-		function cleanEncode() {
-			document.getElementById("codified").value = "";
-			document.getElementById("clearText").value = "";
-		}
-
-		function encodeHex() {
-			var encoded = "";
-			var c;
-			var original = document.getElementById("clearTextHex").value;
-			for(c = 0; c < original.length; c++) {
-				encoded += toHex(original.charCodeAt(c));
-			}
-			document.getElementById("codifiedHex").value = encoded;
-		}
-
-		function cleanEncodeHex() {
-			document.getElementById("codifiedHex").value = "";
-			document.getElementById("clearTextHex").value = "";
-		}
-
-		function toHex(number) {
-			var hex = "";
-			while(number > 0) {
-				var next = number % 16;
-				number = Math.floor(number / 16);
-				hex = (next < 10? next: String.fromCharCode(next + 55)) + hex;
-			}
-			return hex;
-		}
-
-		function execute() {
-			eval(document.getElementById("execute").value);
-		}
-
-	</script>
+	</style>
 
 </head>
 
 <body>
 
-<form onsubmit="return false" enctype="multipart/form-data">
-	<label for="url">URL</label> <input type="text" id="url" style="width: 90%;"> <br>
-	<label for="method">Method</label>
-	<select id="method">
-		<option value="GET">GET</option>
-		<option value="PUT">PUT</option>
-		<option value="POST">POST</option>
-		<option value="DELETE">DELETE</option>
-	</select> <br>
-	<label for="headers">Headers</label> <br>
-	<textarea id="headers" rows="5" cols="80"></textarea> <br>
-	<label for="content">Content</label> <br>
-	<textarea id="content" rows="5" cols="80"></textarea> <br>
-	<button onclick="send_onClick()">SEND</button>
-</form>
+	<div class="mail-load-waiting">
+		<img src="image/loading-bar.gif">
+	</div>
 
-<hr>
+	<div class="mail-login"></div>
 
-<div id="result" style="white-space: pre; font-family: monospace;">
-</div>
-
-<hr>
-
-Encoder <br>
-<label for="clearText" style="width: 100px; display: inline-block;">Clear text: </label>
-<input type="text" id="clearText" style="width: 400px;">
-<button onclick="encode()">Encode</button>
-<button onclick="cleanEncode()">Clean</button> <br>
-<label for="codified" style="width: 100px; display: inline-block;">Encoded: </label>
-<input type="text" id="codified" style="width: 400px;"> <br>
-
-<hr>
-
-Hex Encoder <br>
-<label for="clearTextHex" style="width: 100px; display: inline-block;">Clear text: </label>
-<input type="text" id="clearTextHex" style="width: 400px;">
-<button onclick="encodeHex()">Encode</button>
-<button onclick="cleanEncodeHex()">Clean</button> <br>
-<label for="codifiedHex" style="width: 100px; display: inline-block;">Encoded: </label>
-<input type="text" id="codifiedHex" style="width: 400px;"> <br>
-
-<hr>
-
-Execute JS <br>
-<textarea id="execute" rows="5" cols="80"></textarea> <br>
-<button onclick="execute()">Execute</button>
+	<div class="mail-main"></div>
 
 </body>
 
