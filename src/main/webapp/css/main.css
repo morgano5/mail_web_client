@@ -20,7 +20,7 @@
 
 .mail-login {
     position: absolute;
-    display: /* table /*/ none /**/;
+    display: /**/ table /*/ none /**/;
     width: 99vw;
     height: 99vh;
 }
@@ -60,5 +60,5 @@
 }
 
 .mail-main {
-    display: none;
+    /*display: none;*/
 }

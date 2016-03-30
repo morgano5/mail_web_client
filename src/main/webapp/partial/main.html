@@ -1,0 +1,28 @@
+<div class="mail-main">
+    main
+    <br><button data-ng-click="logout()">Logout</button>
+
+
+
+
+
+	newMessages: {{startData.newMessages}},
+	unreadMessages:0,
+	pageMessages:null,
+	<ul>
+		<li data-ng-repeat="subFolder in startData.subFolders">{{ subFolder.name }}</li>
+	</ul>
+	subFolders:[
+	{newMessages:234, unreadMessages:77, pageMessages:null, subFolders:null, totalMessages:563, fullName:"Trash", name:"Trash", parent:null},
+	{newMessages:0, unreadMessages:0, pageMessages:null, subFolders:null, totalMessages:15, fullName:"Archivo", name:"Archivo", parent:null},
+	{newMessages:0, unreadMessages:0, pageMessages:null, subFolders:null, totalMessages:87, fullName:"Sent", name:"Sent", parent:null},
+	{newMessages:0, unreadMessages:0, pageMessages:null, subFolders:null, totalMessages:0, fullName:"Drafts", name:"Drafts", parent:null},
+	{newMessages:0, unreadMessages:107, pageMessages:null, subFolders:null, totalMessages:278, fullName:"INBOX", name:"INBOX", parent:null}
+	],
+	totalMessages:0,
+	fullName:null,
+	name:"",
+	parent:null
+
+
+</div>

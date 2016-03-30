@@ -263,8 +263,8 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
     private void setStatus401Unauthorized(HttpServletResponse response) {
         removeCookie(response);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\""
-                + Constants.CHARSET_NAME + "\"");
+//        response.addHeader("WWW-Authenticate", "Basic realm=\"mailClient\", charset=\""
+//                + Constants.CHARSET_NAME + "\"");
     }
 
     private void addCookie(TokenInfo tokenInfo, HttpServletResponse response) {

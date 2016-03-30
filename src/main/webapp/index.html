@@ -9,38 +9,13 @@
     <script type="text/javascript" src="js/angular.min.js"></script>
     <script type="text/javascript" src="js/jquery-1.12.2.min.js"></script>
     <script type="text/javascript" src="js/main.js"></script>
+    <script type="text/javascript" src="js/angular-route.min.js"></script>
 
     <link rel="stylesheet" href="css/main.css" type="text/css">
-
 </head>
 
 <body data-ng-app="mail" ng-controller="MailController">
-
-    <!-- Loading view -->
-    <div class="mail-load-waiting">
-        <img src="image/loading-bar.gif">
-    </div>
-
-    <!-- Login view -->
-    <div class="mail-login">
-        <div>
-            <div>
-                <div class="mail-login-logo"><img src="image/logo.png"></div>
-                <div>
-                    <div class="mail-login-label"><label for="f1">Username</label></div>
-                    <div class="mail-login-field"><input id="f1" type="text" class="mail-login-input"></div>
-                </div>
-                <div>
-                    <div class="mail-login-label"><label for="f2">Password</label></div>
-                    <div class="mail-login-field"><input id="f2" type="password" class="mail-login-input"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- main view -->
-    <div class="mail-main"></div>
-
+    <ng-view></ng-view>
 </body>
 
 </html>
