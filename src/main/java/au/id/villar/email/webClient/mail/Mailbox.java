@@ -22,10 +22,10 @@ public class Mailbox {
 
         runWithStore(store -> {
 
-            Folder folder = fullFolderName != null ?
+            Folder folder = fullFolderName != null && !fullFolderName.isEmpty() ?
                     store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password)):
                     store.getDefaultFolder();
-            populateMailFolder(mailFolder, folder, false);
+            populateMailFolder(mailFolder, folder, true);
 
             mailFolder.setSubFolders(getSubFolders(folder, null));
 
@@ -70,11 +70,11 @@ public class Mailbox {
 
     private void populateMailFolder(MailFolder mailFolder, Folder folder, boolean withFull) throws MessagingException {
         mailFolder.setName(folder.getName());
+        if(withFull) mailFolder.setFullName(folder.getFullName());
         if(mailFolder.getName().isEmpty()) return;
         mailFolder.setTotalMessages(folder.getMessageCount());
         mailFolder.setNewMessages(folder.getNewMessageCount());
         mailFolder.setUnreadMessages(folder.getUnreadMessageCount());
-        if(withFull) mailFolder.setFullName(folder.getFullName());
     }
 
     private MailFolder[] getSubFolders(Folder folder, MailFolder exclude) throws MessagingException {
@@ -82,11 +82,11 @@ public class Mailbox {
         MailFolder[] mailSubFolders = new MailFolder[subFolders.length - (exclude != null? 1: 0)];
         int offset = 0;
         for(int i = 0; i < subFolders.length; i++) {
-            if(exclude == null || !exclude.getName().equals(subFolders[i].getName())) {
+            if(exclude == null || !exclude.getFullName().equals(subFolders[i].getFullName())) {
                 mailSubFolders[i + offset] = new MailFolder();
                 populateMailFolder(mailSubFolders[i + offset], subFolders[i], true);
             } else {
-                offset = -1;
+                offset--;
             }
         }
         return mailSubFolders;

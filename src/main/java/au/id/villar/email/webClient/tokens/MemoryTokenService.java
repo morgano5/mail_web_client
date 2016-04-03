@@ -163,7 +163,9 @@ public class MemoryTokenService implements TokenService {
                     }
                     LOG.info("Token cleaning up finished");
                 }
-            } catch(InterruptedException ignore) {}
+            } catch(InterruptedException ignore) {
+                LOG.info("Token cleaning up finished");
+            }
         }
     }
 }

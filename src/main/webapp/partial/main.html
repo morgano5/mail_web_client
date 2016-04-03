@@ -1,28 +1,43 @@
-<div class="mail-main">
+<div>
     main
-    <br><button data-ng-click="logout()">Logout</button>
+    <br /><button data-ng-click="logout()">Logout</button>
+
+
+
+    Folder: {{ folderScreen.name }} ( {{ folderScreen.fullName }} )<br />
+
+
+    New Messages: {{ folderScreen.newMessages }}<br />
+    Unread Messages:  {{ folderScreen.unreadMessages }}<br />
+    Total Messages: {{ folderScreen.totalMessages }}<br />
+
+
+    Root:
+    <div id="mail-folder-tree"></div>
+
+
+
+
+    Subfolders:
+    <div data-ng-repeat="subFolder in folderScreen.subFolders">
+        {{ subFolder.name }} <button data-ng-click="loadFolder(subFolder.fullName)">x</button>
+        <pre>
+        {{ subFolder | json }}
+        </pre>
+    </div>
 
 
 
 
 
-	newMessages: {{startData.newMessages}},
-	unreadMessages:0,
-	pageMessages:null,
-	<ul>
-		<li data-ng-repeat="subFolder in startData.subFolders">{{ subFolder.name }}</li>
-	</ul>
-	subFolders:[
-	{newMessages:234, unreadMessages:77, pageMessages:null, subFolders:null, totalMessages:563, fullName:"Trash", name:"Trash", parent:null},
-	{newMessages:0, unreadMessages:0, pageMessages:null, subFolders:null, totalMessages:15, fullName:"Archivo", name:"Archivo", parent:null},
-	{newMessages:0, unreadMessages:0, pageMessages:null, subFolders:null, totalMessages:87, fullName:"Sent", name:"Sent", parent:null},
-	{newMessages:0, unreadMessages:0, pageMessages:null, subFolders:null, totalMessages:0, fullName:"Drafts", name:"Drafts", parent:null},
-	{newMessages:0, unreadMessages:107, pageMessages:null, subFolders:null, totalMessages:278, fullName:"INBOX", name:"INBOX", parent:null}
-	],
-	totalMessages:0,
-	fullName:null,
-	name:"",
-	parent:null
+    Page Messages:<br />
+    <div class="mail-row" data-ng-repeat="message in folderScreen.pageMessages">
+        <div class="mail-row-from">
+            <span data-ng-repeat="from in message.from" title="{{ toEmail(from) }}">{{ toName(from) }}</span>
+        </div>
+        <div class="mail-row-subject">{{ message.subject }}</div>
+         <div class="mail-row-date">{{ formatDate(message.sentDate) }}</div>
+    </div>
 
 
 </div>

@@ -14,8 +14,39 @@
     <link rel="stylesheet" href="css/main.css" type="text/css">
 </head>
 
-<body data-ng-app="mail" ng-controller="MailController">
-    <ng-view></ng-view>
+<body data-ng-app="mail">
+
+    <!-- Loading -->
+    <div class="mail-load-waiting">
+        <img src="image/loading-bar.gif">
+    </div>
+
+    <!-- Login -->
+    <div class="mail-login">
+        <div>
+            <div>
+                <div class="mail-login-logo"><img src="image/logo.png"></div>
+                <div>
+                    <div class="mail-login-label"><label for="f1">Username</label></div>
+                    <div class="mail-login-field"><input id="f1" type="text" class="mail-login-input"
+                                                         data-ng-model="loginData.username"></div>
+                </div>
+                <div>
+                    <div class="mail-login-label"><label for="f2">Password</label></div>
+                    <div class="mail-login-field"><input id="f2" type="password" class="mail-login-input"
+                                                         data-ng-model="loginData.password"></div>
+                </div>
+                <br><span>{{ loginMessage }}</span><br>
+                <button data-ng-click="login()">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="mail-main">
+        <ng-view></ng-view>
+    </div>
+
 </body>
 
 </html>

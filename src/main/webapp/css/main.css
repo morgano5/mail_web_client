@@ -1,3 +1,8 @@
+body {
+    font-family: sans-serif;
+    font-size: small;
+}
+
 .mail-load-waiting {
     position: relative;
     width: 99vw;
@@ -61,4 +66,56 @@
 
 .mail-main {
     /*display: none;*/
+}
+
+.mail-row {
+    padding: 3px;
+    border: 1px solid #ddeeff;
+    /*background-color: #eeeeee;*/
+    overflow: auto;
+}
+
+.mail-row-from {
+    float: left;
+    width: 300px;
+    overflow: auto;
+    text-overflow: ellipsis;
+}
+
+.mail-row-subject {
+    display: inline;
+    overflow: auto;
+}
+
+.mail-row-date {
+    float: right;
+    width: 150px;
+}
+
+
+.mail-tree {
+    padding-left: 0;
+}
+
+.mail-tree-node {
+    margin-left: 0;
+    cursor: pointer;
+    list-style-type: none;
+    background-size: 20px;
+    background-image: url("../image/folder.png");
+    background-repeat: no-repeat;
+    padding-left: 20px;
+    /*list-style-image: url("../image/folder.png");*/
+    /*list-style-image: ;*/
+}
+
+.mail-tree-node-selected > div:first-child {
+    background-color: #cccccc;
+}
+
+.mail-tree-node > div:first-child {
+    /*background-size: 20px;*/
+    /*background-image: url("../image/folder.png");*/
+    /*background-repeat: no-repeat;*/
+    /*padding-left: 25px;*/
 }
