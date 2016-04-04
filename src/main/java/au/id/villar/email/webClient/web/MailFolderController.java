@@ -42,4 +42,17 @@ public class MailFolderController {
             throw new InternalServerErrorException();
         }
     }
+
+    @Permissions(Role.MAIL_USER)
+    @RequestMapping(value = "/mail/subFolders", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody MailFolder[] getSubFolders(
+            @RequestParam(required = false) String fullFolderName, UserPasswordHolder userPassword) {
+        try {
+            return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
+                    .getSubFolders(fullFolderName);
+        } catch (MessagingException e) {
+            LOG.error("Error getting starting folder: " + e.getMessage(), e);
+            throw new InternalServerErrorException();
+        }
+    }
 }

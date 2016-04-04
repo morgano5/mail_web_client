@@ -68,6 +68,19 @@ public class Mailbox {
         return mailFolder;
     }
 
+    public MailFolder[] getSubFolders(final String fullFolderName) throws MessagingException {
+
+        class ObjectHolder<T> { private T obj; }
+        final ObjectHolder<MailFolder[]> holder = new ObjectHolder<>();
+
+        runWithStore(store -> {
+            Folder folder = store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password));
+            holder.obj = getSubFolders(folder, null);
+        });
+
+        return holder.obj;
+    }
+
     private void populateMailFolder(MailFolder mailFolder, Folder folder, boolean withFull) throws MessagingException {
         mailFolder.setName(folder.getName());
         if(withFull) mailFolder.setFullName(folder.getFullName());

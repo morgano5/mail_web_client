@@ -1,6 +1,20 @@
 
 var mailCore = new (function () {
 
+    var functionAfterLogin = undefined;
+
+    this.loginAndRetry = function (fnToExecute) {
+        mailCore.showLogin();
+        functionAfterLogin = fnToExecute;
+    };
+
+    this.executePendingAfterLogin = function() {
+        if(functionAfterLogin) {
+            functionAfterLogin();
+            functionAfterLogin = undefined;
+        }
+    };
+
     this.showLoading = function() {
         $(".mail-load-waiting").show();
         $(".mail-login").css('display', 'none');
@@ -21,7 +35,8 @@ var mailCore = new (function () {
 
     this.rearrangeFolderData = function(folderData) {
         var parent = folderData.parent;
-        var current = {parent: folderData.parent, name: folderData.name, fullName: folderData.fullName};
+        var current = {parent: folderData.parent, name: folderData.name, fullName: folderData.fullName,
+            subFolders: folderData.subFolders};
         while(parent) {
             parent.subFolders.push(current);
             parent.subFolders.sort(function (folder1, folder2) {
@@ -32,6 +47,7 @@ var mailCore = new (function () {
             parent = current.parent;
         }
         folderData.root = current;
+        return folderData;
     }
 
 })();
@@ -61,35 +77,38 @@ angular.module('mail', ['ngRoute'])
 
         service.getStartingFolder = function(folderName, startingPageIndex, pageLength) {
 
-            // return $http({url: "api/mail/start", method: "GET",
-            //     params: {folderName: folderName, startingPageIndex: startingPageIndex, pageLength: pageLength}});
+            return $http({url: "api/mail/start", method: "GET",
+                params: {folderName: folderName, startingPageIndex: startingPageIndex, pageLength: pageLength}});
 
 
-            // TODO connect
-            return {
-                then: function(success, error) {
-                    var response = {
-                        data: {"newMessages":0,"unreadMessages":116,"pageMessages":[{"sentDate":{"time":1384386883000,"year":113,"month":10,"date":14,"hours":9,"minutes":54,"seconds":43,"day":4,"timezoneOffset":-600},"subject":"Activa tu suscripción a: Emprendiéndole","from":["FeedBurner Email Subscriptions <noreply+feedproxy@google.com>"]},{"sentDate":{"time":1395012026000,"year":114,"month":2,"date":17,"hours":9,"minutes":20,"seconds":26,"day":1,"timezoneOffset":-600},"subject":"Welcome to Entrepreneur Inspiration Station","from":["inspiration@entrepreneur.com"]},{"sentDate":{"time":1404975464000,"year":114,"month":6,"date":10,"hours":16,"minutes":57,"seconds":44,"day":4,"timezoneOffset":-600},"subject":"pic","from":["Rafael Villar Villar <morgano5@gmail.com>"]},{"sentDate":{"time":1411073033000,"year":114,"month":8,"date":19,"hours":6,"minutes":43,"seconds":53,"day":5,"timezoneOffset":-600},"subject":"Message accepted: RE: Reference request about Rype","from":["Chris Palmer <hit-reply@linkedin.com>"]},{"sentDate":{"time":1411106461000,"year":114,"month":8,"date":19,"hours":16,"minutes":1,"seconds":1,"day":5,"timezoneOffset":-600},"subject":"[Bitbucket] Confirm your email address","from":["Bitbucket <noreply@bitbucket.org>"]},{"sentDate":{"time":1411119980000,"year":114,"month":8,"date":19,"hours":19,"minutes":46,"seconds":20,"day":5,"timezoneOffset":-600},"subject":"Your new myGov username","from":["myGov <noreply@my.gov.au>"]},{"sentDate":{"time":1411143364000,"year":114,"month":8,"date":20,"hours":2,"minutes":16,"seconds":4,"day":6,"timezoneOffset":-600},"subject":"RE: saludines","from":["M ar <arkadfel@hotmail.com>"]},{"sentDate":{"time":1411184486000,"year":114,"month":8,"date":20,"hours":13,"minutes":41,"seconds":26,"day":6,"timezoneOffset":-600},"subject":"confirm subscribe to announce@apache.org","from":["announce-help@apache.org"]},{"sentDate":{"time":1411184623000,"year":114,"month":8,"date":20,"hours":13,"minutes":43,"seconds":43,"day":6,"timezoneOffset":-600},"subject":"WELCOME to announce@apache.org","from":["announce-help@apache.org"]},{"sentDate":{"time":1411502566000,"year":114,"month":8,"date":24,"hours":6,"minutes":2,"seconds":46,"day":3,"timezoneOffset":-600},"subject":"MOZART RANNA SOVIERZOSKI PMP® 3000+ Lin congratulated you on your work anniversary!","from":["=?UTF-8?Q?MOZART_RANNA_SOVIERZOSKI_PMP=C2=AE_3000+_Lin_via_LinkedIn?= <notifications-noreply@linkedin.com>"]},{"sentDate":{"time":1411690834000,"year":114,"month":8,"date":26,"hours":10,"minutes":20,"seconds":34,"day":5,"timezoneOffset":-600},"subject":"[JCP] Registration: Confirmation Step","from":["JCP Auto Registrar <admin-registrar@JCP.org>"]},{"sentDate":{"time":1411691144000,"year":114,"month":8,"date":26,"hours":10,"minutes":25,"seconds":44,"day":5,"timezoneOffset":-600},"subject":"[JCP] Registration Info","from":["admin@jcp.org"]},{"sentDate":{"time":1411729395000,"year":114,"month":8,"date":26,"hours":21,"minutes":3,"seconds":15,"day":5,"timezoneOffset":-600},"subject":"Rv:Re:Nuevos emails y telefonos","from":["rvillar <rvillar@prodigy.net.mx>"]},{"sentDate":{"time":1412911889000,"year":114,"month":9,"date":10,"hours":13,"minutes":31,"seconds":29,"day":5,"timezoneOffset":-600},"subject":"Hi! A change has been made to your profile","from":["myaccount@optus.com.au"]},{"sentDate":{"time":1413198119000,"year":114,"month":9,"date":13,"hours":21,"minutes":1,"seconds":59,"day":1,"timezoneOffset":-600},"subject":"IMPORTANT: Activate your registration on the Do Not Call Register","from":["donotreply@donotcall.gov.au"]},{"sentDate":{"time":1414375409000,"year":114,"month":9,"date":27,"hours":12,"minutes":3,"seconds":29,"day":1,"timezoneOffset":-600},"subject":"Re: New Role - QSuper - Senior Systems Developer","from":["Ashish Khurana <ashi.khurana@gmail.com>"]},{"sentDate":{"time":1414979267000,"year":114,"month":10,"date":3,"hours":11,"minutes":47,"seconds":47,"day":1,"timezoneOffset":-600},"subject":"Re: NSWFA WS Update and other topics","from":["Graham Lynn <graham@rype.com.au>"]},{"sentDate":{"time":1417136524000,"year":114,"month":10,"date":28,"hours":11,"minutes":2,"seconds":4,"day":5,"timezoneOffset":-600},"subject":"Warning from announce@apache.org","from":["announce-help@apache.org"]},{"sentDate":{"time":1417476672000,"year":114,"month":11,"date":2,"hours":9,"minutes":31,"seconds":12,"day":2,"timezoneOffset":-600},"subject":"Activate your JetBrains Account","from":["JetBrains Account <account@jetbrains.com>"]},{"sentDate":{"time":1417476724000,"year":114,"month":11,"date":2,"hours":9,"minutes":32,"seconds":4,"day":2,"timezoneOffset":-600},"subject":"Your JetBrains Account has been created successfully","from":["JetBrains Account <account@jetbrains.com>"]}],"subFolders":[{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.Clui","name":"Clui","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.testingfolder","name":"testingfolder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":1336,"fullName":"INBOX.mdh","name":"mdh","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":14,"fullName":"INBOX.scrum","name":"scrum","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.seek_just_seek","name":"seek_just_seek","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":8,"fullName":"INBOX.socialCoder","name":"socialCoder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.subscriptions","name":"subscriptions","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":4,"fullName":"INBOX.Queensland JVM","name":"Queensland JVM","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":23,"fullName":"INBOX.Atlassian","name":"Atlassian","parent":null}],"totalMessages":291,"fullName":"INBOX","name":"INBOX","parent":{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":[{"newMessages":242,"unreadMessages":84,"pageMessages":null,"subFolders":null,"totalMessages":571,"fullName":"Trash","name":"Trash","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":15,"fullName":"Archivo","name":"Archivo","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":87,"fullName":"Sent","name":"Sent","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"Drafts","name":"Drafts","parent":null}],"totalMessages":0,"fullName":"","name":"","parent":null}}
-                    };
-                    setTimeout(function() {success(response)}, 2000);
-                }
-            };
+            // // TODO connect
+            // return {
+            //     then: function(success, error) {
+            //         var response = {
+            //             data: {"newMessages":0,"unreadMessages":116,"pageMessages":[{"sentDate":{"time":1384386883000,"year":113,"month":10,"date":14,"hours":9,"minutes":54,"seconds":43,"day":4,"timezoneOffset":-600},"subject":"Activa tu suscripción a: Emprendiéndole","from":["FeedBurner Email Subscriptions <noreply+feedproxy@google.com>"]},{"sentDate":{"time":1395012026000,"year":114,"month":2,"date":17,"hours":9,"minutes":20,"seconds":26,"day":1,"timezoneOffset":-600},"subject":"Welcome to Entrepreneur Inspiration Station","from":["inspiration@entrepreneur.com"]},{"sentDate":{"time":1404975464000,"year":114,"month":6,"date":10,"hours":16,"minutes":57,"seconds":44,"day":4,"timezoneOffset":-600},"subject":"pic","from":["Rafael Villar Villar <morgano5@gmail.com>"]},{"sentDate":{"time":1411073033000,"year":114,"month":8,"date":19,"hours":6,"minutes":43,"seconds":53,"day":5,"timezoneOffset":-600},"subject":"Message accepted: RE: Reference request about Rype","from":["Chris Palmer <hit-reply@linkedin.com>"]},{"sentDate":{"time":1411106461000,"year":114,"month":8,"date":19,"hours":16,"minutes":1,"seconds":1,"day":5,"timezoneOffset":-600},"subject":"[Bitbucket] Confirm your email address","from":["Bitbucket <noreply@bitbucket.org>"]},{"sentDate":{"time":1411119980000,"year":114,"month":8,"date":19,"hours":19,"minutes":46,"seconds":20,"day":5,"timezoneOffset":-600},"subject":"Your new myGov username","from":["myGov <noreply@my.gov.au>"]},{"sentDate":{"time":1411143364000,"year":114,"month":8,"date":20,"hours":2,"minutes":16,"seconds":4,"day":6,"timezoneOffset":-600},"subject":"RE: saludines","from":["M ar <arkadfel@hotmail.com>"]},{"sentDate":{"time":1411184486000,"year":114,"month":8,"date":20,"hours":13,"minutes":41,"seconds":26,"day":6,"timezoneOffset":-600},"subject":"confirm subscribe to announce@apache.org","from":["announce-help@apache.org"]},{"sentDate":{"time":1411184623000,"year":114,"month":8,"date":20,"hours":13,"minutes":43,"seconds":43,"day":6,"timezoneOffset":-600},"subject":"WELCOME to announce@apache.org","from":["announce-help@apache.org"]},{"sentDate":{"time":1411502566000,"year":114,"month":8,"date":24,"hours":6,"minutes":2,"seconds":46,"day":3,"timezoneOffset":-600},"subject":"MOZART RANNA SOVIERZOSKI PMP® 3000+ Lin congratulated you on your work anniversary!","from":["=?UTF-8?Q?MOZART_RANNA_SOVIERZOSKI_PMP=C2=AE_3000+_Lin_via_LinkedIn?= <notifications-noreply@linkedin.com>"]},{"sentDate":{"time":1411690834000,"year":114,"month":8,"date":26,"hours":10,"minutes":20,"seconds":34,"day":5,"timezoneOffset":-600},"subject":"[JCP] Registration: Confirmation Step","from":["JCP Auto Registrar <admin-registrar@JCP.org>"]},{"sentDate":{"time":1411691144000,"year":114,"month":8,"date":26,"hours":10,"minutes":25,"seconds":44,"day":5,"timezoneOffset":-600},"subject":"[JCP] Registration Info","from":["admin@jcp.org"]},{"sentDate":{"time":1411729395000,"year":114,"month":8,"date":26,"hours":21,"minutes":3,"seconds":15,"day":5,"timezoneOffset":-600},"subject":"Rv:Re:Nuevos emails y telefonos","from":["rvillar <rvillar@prodigy.net.mx>"]},{"sentDate":{"time":1412911889000,"year":114,"month":9,"date":10,"hours":13,"minutes":31,"seconds":29,"day":5,"timezoneOffset":-600},"subject":"Hi! A change has been made to your profile","from":["myaccount@optus.com.au"]},{"sentDate":{"time":1413198119000,"year":114,"month":9,"date":13,"hours":21,"minutes":1,"seconds":59,"day":1,"timezoneOffset":-600},"subject":"IMPORTANT: Activate your registration on the Do Not Call Register","from":["donotreply@donotcall.gov.au"]},{"sentDate":{"time":1414375409000,"year":114,"month":9,"date":27,"hours":12,"minutes":3,"seconds":29,"day":1,"timezoneOffset":-600},"subject":"Re: New Role - QSuper - Senior Systems Developer","from":["Ashish Khurana <ashi.khurana@gmail.com>"]},{"sentDate":{"time":1414979267000,"year":114,"month":10,"date":3,"hours":11,"minutes":47,"seconds":47,"day":1,"timezoneOffset":-600},"subject":"Re: NSWFA WS Update and other topics","from":["Graham Lynn <graham@rype.com.au>"]},{"sentDate":{"time":1417136524000,"year":114,"month":10,"date":28,"hours":11,"minutes":2,"seconds":4,"day":5,"timezoneOffset":-600},"subject":"Warning from announce@apache.org","from":["announce-help@apache.org"]},{"sentDate":{"time":1417476672000,"year":114,"month":11,"date":2,"hours":9,"minutes":31,"seconds":12,"day":2,"timezoneOffset":-600},"subject":"Activate your JetBrains Account","from":["JetBrains Account <account@jetbrains.com>"]},{"sentDate":{"time":1417476724000,"year":114,"month":11,"date":2,"hours":9,"minutes":32,"seconds":4,"day":2,"timezoneOffset":-600},"subject":"Your JetBrains Account has been created successfully","from":["JetBrains Account <account@jetbrains.com>"]}],"subFolders":[{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.Clui","name":"Clui","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.testingfolder","name":"testingfolder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":1336,"fullName":"INBOX.mdh","name":"mdh","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":14,"fullName":"INBOX.scrum","name":"scrum","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.seek_just_seek","name":"seek_just_seek","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":8,"fullName":"INBOX.socialCoder","name":"socialCoder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.subscriptions","name":"subscriptions","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":4,"fullName":"INBOX.Queensland JVM","name":"Queensland JVM","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":23,"fullName":"INBOX.Atlassian","name":"Atlassian","parent":null}],"totalMessages":291,"fullName":"INBOX","name":"INBOX","parent":{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":[{"newMessages":242,"unreadMessages":84,"pageMessages":null,"subFolders":null,"totalMessages":571,"fullName":"Trash","name":"Trash","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":15,"fullName":"Archivo","name":"Archivo","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":87,"fullName":"Sent","name":"Sent","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"Drafts","name":"Drafts","parent":null}],"totalMessages":0,"fullName":"","name":"","parent":null}}
+            //         };
+            //         setTimeout(function() {success(response)}, 2000);
+            //     }
+            // };
 
 
         };
 
-        service.getSubfolders = function(folderName) {
+        service.getSubfolders = function(fullFolderName) {
 
-            // TODO connect
-            return {
-                then: function(success, error) {
-                    var response = {
-                        data: [{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.Clui","name":"Clui","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.testingfolder","name":"testingfolder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":1336,"fullName":"INBOX.mdh","name":"mdh","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":14,"fullName":"INBOX.scrum","name":"scrum","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.seek_just_seek","name":"seek_just_seek","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":8,"fullName":"INBOX.socialCoder","name":"socialCoder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.subscriptions","name":"subscriptions","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":4,"fullName":"INBOX.Queensland JVM","name":"Queensland JVM","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":23,"fullName":"INBOX.Atlassian","name":"Atlassian","parent":null}]
-                    };
-                    console.log("RESPONSE OK");
-                    setTimeout(function() {success(response)}, 2000);
-                }
-            };
+            return $http({url: "api/mail/subFolders", method: "GET", params: {fullFolderName: fullFolderName}});
+
+
+            // // TODO connect
+            // return {
+            //     then: function(success, error) {
+            //         var response = {
+            //             data: [{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.Clui","name":"Clui","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.testingfolder","name":"testingfolder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":1336,"fullName":"INBOX.mdh","name":"mdh","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":14,"fullName":"INBOX.scrum","name":"scrum","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.seek_just_seek","name":"seek_just_seek","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":8,"fullName":"INBOX.socialCoder","name":"socialCoder","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":0,"fullName":"INBOX.subscriptions","name":"subscriptions","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":4,"fullName":"INBOX.Queensland JVM","name":"Queensland JVM","parent":null},{"newMessages":0,"unreadMessages":0,"pageMessages":null,"subFolders":null,"totalMessages":23,"fullName":"INBOX.Atlassian","name":"Atlassian","parent":null}]
+            //         };
+            //         console.log("RESPONSE OK");
+            //         setTimeout(function() {success(response)}, 2000);
+            //     }
+            // };
 
 
         };
@@ -98,23 +117,19 @@ angular.module('mail', ['ngRoute'])
         return service;
     })
 
-    .controller('MailController', function($scope, $location, mailService) {
-
-        $scope.loginData = {};
-
-        loadStart();
-
+    .controller('LoginController', function($scope, mailService) {
         $scope.login = function() {
             mailCore.showLoading();
-            mailService.login($scope.loginData.username, $scope.loginData.password).then(
+            mailService.login($scope.username, $scope.password).then(
                 function() {
                     $scope.loginMessage = '';
                     mailCore.showMain();
-                    loadStart();
+                    mailCore.executePendingAfterLogin();
                 },
                 function(error) {
                     if (error.status == 401) {
                         $scope.loginMessage = 'Wrong Username/password';
+                        mailCore.showLogin();
                     } else {
                         // TODO create error message
                         console.log("ERROR: status " + error.status);
@@ -122,6 +137,10 @@ angular.module('mail', ['ngRoute'])
                 }
             );
         };
+
+    })
+
+    .controller('MailController', function($scope, $location, mailService) {
 
         $scope.logout = function() {
             mailCore.showLoading();
@@ -200,17 +219,25 @@ angular.module('mail', ['ngRoute'])
             return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
         };
 
+        loadStart();
+
         function loadStart() {
             mailCore.showLoading();
 
             mailService.getStartingFolder('', 0, 20).then(
                 function (result) {
-                    $scope.folderScreen = result.data;
-                    mailCore.rearrangeFolderData($scope.folderScreen);
+                    $scope.folderScreen = mailCore.rearrangeFolderData(result.data);
+                    var screenData = $scope.folderScreen;
 
                     var domNode = document.createElement("ul");
                     domNode.setAttribute('class', 'mail-tree');
-                    appendTreeNode(domNode, $scope.folderScreen.root, $scope.folderScreen.fullName, onClick);
+                    if(screenData.root.name != "") {
+                        appendTreeNode(domNode, screenData.root, screenData.fullName, onClick);
+                    } else {
+                        screenData.root.subFolders.forEach(function(item) {
+                            appendTreeNode(domNode, item, 'INBOX', onClick);// TODO Sure it will always going to be INBOX?
+                        });
+                    }
                     document.getElementById('mail-folder-tree').appendChild(domNode);
 
                     $location.path('/main');
@@ -218,7 +245,7 @@ angular.module('mail', ['ngRoute'])
                 },
                 function (error) {
                     if (error.status == 401) {
-                        mailCore.showLogin();
+                        mailCore.loginAndRetry(loadStart);
                     } else {
                         // TODO create error message
                         console.log("ERROR: status " + error.status);
