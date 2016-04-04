@@ -30,15 +30,31 @@ public class MailFolderController {
     @Permissions(Role.MAIL_USER)
     @RequestMapping(value = "/mail/start", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody MailFolder getStartingFolder(
-            @RequestParam(required = false) String folderName,
+            @RequestParam(required = false) String fullFolderName,
             @RequestParam(required = false, defaultValue = "0") int startingPageIndex,
             @RequestParam(required = false, defaultValue = "10") int pageLength,
             UserPasswordHolder userPassword) {
         try {
             return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
-                    .getStartingFolder(folderName, startingPageIndex, pageLength);
+                    .getStartingFolder(fullFolderName, startingPageIndex, pageLength);
         } catch (MessagingException e) {
             LOG.error("Error getting starting folder: " + e.getMessage(), e);
+            throw new InternalServerErrorException();
+        }
+    }
+
+    @Permissions(Role.MAIL_USER)
+    @RequestMapping(value = "/mail/folder", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody MailFolder getFolder(
+            @RequestParam(required = false) String fullFolderName,
+            @RequestParam(required = false, defaultValue = "0") int startingPageIndex,
+            @RequestParam(required = false, defaultValue = "10") int pageLength,
+            UserPasswordHolder userPassword) {
+        try {
+            return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
+                    .getFolder(fullFolderName, startingPageIndex, pageLength);
+        } catch (MessagingException e) {
+            LOG.error("Error getting folder: " + e.getMessage(), e);
             throw new InternalServerErrorException();
         }
     }
@@ -51,7 +67,7 @@ public class MailFolderController {
             return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
                     .getSubFolders(fullFolderName);
         } catch (MessagingException e) {
-            LOG.error("Error getting starting folder: " + e.getMessage(), e);
+            LOG.error("Error getting subfolders: " + e.getMessage(), e);
             throw new InternalServerErrorException();
         }
     }

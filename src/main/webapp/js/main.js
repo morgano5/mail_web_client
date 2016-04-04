@@ -33,7 +33,7 @@ var mailCore = new (function () {
         $(".mail-main").show();
     };
 
-    this.rearrangeFolderData = function(folderData) {
+    this.rearrangeFolderData = function(scope, folderData) {
         var parent = folderData.parent;
         var current = {parent: folderData.parent, name: folderData.name, fullName: folderData.fullName,
             subFolders: folderData.subFolders};
@@ -46,8 +46,10 @@ var mailCore = new (function () {
             current = parent;
             parent = current.parent;
         }
-        folderData.root = current;
-        return folderData;
+        scope.root = current;
+        scope.folder = folderData;
+        folderData.parent = undefined;
+        folderData.subFolders = undefined;
     }
 
 })();
@@ -75,10 +77,10 @@ angular.module('mail', ['ngRoute'])
             return $http({ url: "api/login", method: "DELETE" });
         };
 
-        service.getStartingFolder = function(folderName, startingPageIndex, pageLength) {
+        service.getStartingFolder = function(fullFolderName, startingPageIndex, pageLength) {
 
-            return $http({url: "api/mail/start", method: "GET",
-                params: {folderName: folderName, startingPageIndex: startingPageIndex, pageLength: pageLength}});
+            return $http({url: "api/mail/start", method: "GET", params: {fullFolderName: fullFolderName,
+                startingPageIndex: startingPageIndex, pageLength: pageLength}});
 
 
             // // TODO connect
@@ -95,7 +97,6 @@ angular.module('mail', ['ngRoute'])
         };
 
         service.getSubfolders = function(fullFolderName) {
-
             return $http({url: "api/mail/subFolders", method: "GET", params: {fullFolderName: fullFolderName}});
 
 
@@ -113,6 +114,10 @@ angular.module('mail', ['ngRoute'])
 
         };
 
+        service.getFolder = function(fullFolderName, startingPageIndex, pageLength) {
+            return $http({url: "api/mail/folder", method: "GET", params: {fullFolderName: fullFolderName,
+                startingPageIndex: startingPageIndex, pageLength: pageLength}});
+        };
 
         return service;
     })
@@ -151,24 +156,6 @@ angular.module('mail', ['ngRoute'])
                 function(error) {
                     // TODO
                     alert("error: " + error.status);
-                }
-            );
-        };
-
-        $scope.loadFolder = function(folderName) {
-            mailCore.showLoading();
-            mailService.getStartingFolder(folderName, 0, 20).then(
-                function (result) {
-                    $scope.folderScreen = result.data;
-                    mailCore.showMain();
-                },
-                function (error) {
-                    if (error.status == 401) {
-                        mailCore.showLogin();
-                    } else {
-                        // TODO create error message
-                        console.log("ERROR: status " + error.status);
-                    }
                 }
             );
         };
@@ -226,17 +213,30 @@ angular.module('mail', ['ngRoute'])
 
             mailService.getStartingFolder('', 0, 20).then(
                 function (result) {
-                    $scope.folderScreen = mailCore.rearrangeFolderData(result.data);
-                    var screenData = $scope.folderScreen;
+                    mailCore.rearrangeFolderData($scope, result.data);
+                    var screenData = $scope.folder;
 
                     var domNode = document.createElement("ul");
                     domNode.setAttribute('class', 'mail-tree');
-                    if(screenData.root.name != "") {
-                        appendTreeNode(domNode, screenData.root, screenData.fullName, onClick);
+                    if($scope.root.name != "") {
+                        appendTreeNode(domNode, $scope.root, screenData.fullName, onClick);
                     } else {
-                        screenData.root.subFolders.forEach(function(item) {
-                            appendTreeNode(domNode, item, 'INBOX', onClick);// TODO Sure it will always going to be INBOX?
+                        var folder = null;
+                        var element = null;
+                        $scope.root.subFolders.forEach(function(item) {
+                            var node = appendTreeNode(domNode, item, 'INBOX', onClick);// TODO Sure it will always going to be INBOX?
+                            if(item.fullName == 'INBOX') {
+                                folder = item;
+                                element = node;
+                            }
                         });
+                        if(folder) {
+                            $scope.folder = folder;
+                            getMessages(folder.fullName, element, 0, 20); // TODO unhardcode
+                        } else {
+                            // TODO error
+                        }
+
                     }
                     document.getElementById('mail-folder-tree').appendChild(domNode);
 
@@ -256,7 +256,7 @@ angular.module('mail', ['ngRoute'])
 
         function appendTreeNode(ulNode, root, selected, clickListener) {
 
-            appendTreeNode(ulNode, root);
+            return appendTreeNode(ulNode, root);
 
             function appendTreeNode(ulNode, folder) {
                 var node = document.createElement("li");
@@ -282,6 +282,8 @@ angular.module('mail', ['ngRoute'])
                     node.setAttribute('data-is-expanded', 'false');
                     $(nodeList).hide();
                 }
+
+                return node;
             }
         }
 
@@ -311,7 +313,7 @@ angular.module('mail', ['ngRoute'])
                 var selectedElement = $('.mail-tree-node-selected')[0];
                 selectedElement.setAttribute('class', 'mail-tree-node');
                 this.setAttribute('class', 'mail-tree-node mail-tree-node-selected');
-                // TODO load messages for this folder
+                getMessages(fullName, element, 0, 20); // TODO unhardcode
             } else if(expanded) {
                 $(list).hide(200);
                 this.setAttribute('data-is-expanded', 'false');
@@ -319,19 +321,17 @@ angular.module('mail', ['ngRoute'])
                 $(list).show(200);
                 this.setAttribute('data-is-expanded', 'true');
             } else {
-
-                addLoadingGif();
-
+                addLoadingGif(element);
                 mailService.getSubfolders(fullName).then(
                     function (result) {
                         result.data.forEach(function(item) { appendTreeNode(list, item, '', onClick) });
                         element.setAttribute('data-is-expanded', 'true');
                         element.setAttribute('data-is-loaded', 'true');
-                        removeLoadingGif();
+                        removeLoadingGif(element);
                         $(list).show(200);
                     },
                     function (error) {
-                        removeLoadingGif();
+                        removeLoadingGif(element);
                         if (error.status == 401) {
                             mailCore.showLogin();
                         } else {
@@ -343,17 +343,36 @@ angular.module('mail', ['ngRoute'])
                 this.setAttribute('data-is-expanded', 'true');
                 this.setAttribute('data-is-loaded', 'true');
             }
+        }
 
-            function addLoadingGif() {
-                var imgLoading = document.createElement('img');
-                imgLoading.setAttribute('src', 'image/loading-subfolders.gif');
-                getNthElement(element, 0).appendChild(imgLoading);
-            }
+        function getMessages(fullName, element, pageIndex, pageSize) {
+            addLoadingGif(element);
+            mailService.getFolder(fullName, pageIndex, pageSize).then(
+                function (result) {
+                    $scope.folder = result.data;
+                    removeLoadingGif(element);
+                },
+                function (error) {
+                    removeLoadingGif(element);
+                    if (error.status == 401) {
+                        mailCore.showLogin();
+                    } else {
+                        // TODO create error message
+                        console.log("ERROR: status " + error.status);
+                    }
+                }
+            );
+        }
 
-            function removeLoadingGif() {
-                var textPart = getNthElement(element, 0);
-                textPart.removeChild(textPart.childNodes.item(textPart.childNodes.length - 1));
-            }
+        function addLoadingGif(element) {
+            var imgLoading = document.createElement('img');
+            imgLoading.setAttribute('src', 'image/loading-subfolders.gif');
+            getNthElement(element, 0).appendChild(imgLoading);
+        }
+
+        function removeLoadingGif(element) {
+            var textPart = getNthElement(element, 0);
+            textPart.removeChild(textPart.childNodes.item(textPart.childNodes.length - 1));
         }
 
     });

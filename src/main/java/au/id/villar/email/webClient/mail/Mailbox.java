@@ -16,16 +16,16 @@ public class Mailbox {
         this.session = session;
     }
 
-    public MailFolder getStartingFolder(final String fullFolderName, final int startingPageIndex, final int pageLength)
+    public MailFolder getStartingFolder(String fullFolderName, int startingPageIndex, int pageLength)
             throws MessagingException {
-        final MailFolder mailFolder = new MailFolder();
+        MailFolder mailFolder = new MailFolder();
 
         runWithStore(store -> {
 
             Folder folder = fullFolderName != null && !fullFolderName.isEmpty() ?
                     store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password)):
                     store.getDefaultFolder();
-            populateMailFolder(mailFolder, folder, true);
+            populateMailFolder(folder, mailFolder);
 
             mailFolder.setSubFolders(getSubFolders(folder, null));
 
@@ -34,44 +34,36 @@ public class Mailbox {
             while (parent != null) {
                 MailFolder mailParent = new MailFolder();
                 current.setParent(mailParent);
-                populateMailFolder(mailParent, parent, true);
+                populateMailFolder(parent, mailParent);
                 mailParent.setSubFolders(getSubFolders(parent, current));
                 current = mailParent;
                 parent = parent.getParent();
             }
 
-            if(!mailFolder.getName().isEmpty()) runWithFolder(folder, Folder.READ_ONLY, false, f -> {
-
-                int start = startingPageIndex * pageLength + 1;
-                int end = start + pageLength - 1;
-                if (end > mailFolder.getTotalMessages()) end = mailFolder.getTotalMessages();
-                MailMessage[] mailMessages;
-                if (start > end) {
-                    mailMessages = new MailMessage[0];
-                } else {
-                    Message[] messages = f.getMessages(start, end);
-                    mailMessages = new MailMessage[messages.length];
-                    for (int i = 0; i < messages.length; i++) {
-                        mailMessages[i] = new MailMessage();
-                        Address[] from = messages[i].getFrom();
-                        String[] mailFrom = new String[from.length];
-                        for (int j = 0; j < from.length; j++) mailFrom[j] = from[j].toString();
-                        mailMessages[i].setFrom(mailFrom);
-                        mailMessages[i].setSubject(messages[i].getSubject());
-                        mailMessages[i].setSentDate(messages[i].getSentDate());
-                    }
-                }
-                mailFolder.setPageMessages(mailMessages);
-            });
+            populateMessages(folder, mailFolder, startingPageIndex, pageLength);
         });
 
         return mailFolder;
     }
 
-    public MailFolder[] getSubFolders(final String fullFolderName) throws MessagingException {
+    public MailFolder getFolder(String fullFolderName, int startingPageIndex, int pageLength)
+            throws MessagingException {
+
+        MailFolder mailFolder = new MailFolder();
+
+        runWithStore(store -> {
+            Folder folder = store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password));
+            populateMailFolder(folder, mailFolder);
+            populateMessages(folder, mailFolder, startingPageIndex, pageLength);
+        });
+
+        return mailFolder;
+    }
+
+    public MailFolder[] getSubFolders(String fullFolderName) throws MessagingException {
 
         class ObjectHolder<T> { private T obj; }
-        final ObjectHolder<MailFolder[]> holder = new ObjectHolder<>();
+        ObjectHolder<MailFolder[]> holder = new ObjectHolder<>();
 
         runWithStore(store -> {
             Folder folder = store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password));
@@ -81,13 +73,41 @@ public class Mailbox {
         return holder.obj;
     }
 
-    private void populateMailFolder(MailFolder mailFolder, Folder folder, boolean withFull) throws MessagingException {
+    private void populateMailFolder(Folder folder, MailFolder mailFolder) throws MessagingException {
         mailFolder.setName(folder.getName());
-        if(withFull) mailFolder.setFullName(folder.getFullName());
-        if(mailFolder.getName().isEmpty()) return;
+        mailFolder.setFullName(folder.getFullName());
+        if((folder.getType() & Folder.HOLDS_MESSAGES) == 0) return;
         mailFolder.setTotalMessages(folder.getMessageCount());
         mailFolder.setNewMessages(folder.getNewMessageCount());
         mailFolder.setUnreadMessages(folder.getUnreadMessageCount());
+    }
+
+    private void populateMessages(Folder folder, MailFolder mailFolder, int startingPageIndex, int pageLength)
+            throws MessagingException {
+        if((folder.getType() & Folder.HOLDS_MESSAGES) != 0) runWithFolder(folder, Folder.READ_ONLY, false, f -> {
+
+            int start = startingPageIndex * pageLength + 1;
+            int end = start + pageLength - 1;
+            if (end > mailFolder.getTotalMessages()) end = mailFolder.getTotalMessages();
+            MailMessage[] mailMessages;
+            if (start > end) {
+                mailMessages = new MailMessage[0];
+            } else {
+                Message[] messages = f.getMessages(start, end);
+                mailMessages = new MailMessage[messages.length];
+                for (int i = 0; i < messages.length; i++) {
+                    mailMessages[i] = new MailMessage();
+                    Address[] from = messages[i].getFrom();
+                    String[] mailFrom = new String[from.length];
+                    for (int j = 0; j < from.length; j++) mailFrom[j] = from[j].toString();
+                    mailMessages[i].setFrom(mailFrom);
+                    mailMessages[i].setSubject(messages[i].getSubject());
+                    mailMessages[i].setSentDate(messages[i].getSentDate());
+                }
+            }
+            mailFolder.setPageMessages(mailMessages);
+        });
+
     }
 
     private MailFolder[] getSubFolders(Folder folder, MailFolder exclude) throws MessagingException {
@@ -97,7 +117,7 @@ public class Mailbox {
         for(int i = 0; i < subFolders.length; i++) {
             if(exclude == null || !exclude.getFullName().equals(subFolders[i].getFullName())) {
                 mailSubFolders[i + offset] = new MailFolder();
-                populateMailFolder(mailSubFolders[i + offset], subFolders[i], true);
+                populateMailFolder(subFolders[i], mailSubFolders[i + offset]);
             } else {
                 offset--;
             }
