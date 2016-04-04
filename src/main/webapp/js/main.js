@@ -3,6 +3,8 @@ var mailCore = new (function () {
 
     var functionAfterLogin = undefined;
 
+    var mailCore = this;
+
     this.loginAndRetry = function (fnToExecute) {
         mailCore.showLogin();
         functionAfterLogin = fnToExecute;
@@ -52,6 +54,179 @@ var mailCore = new (function () {
         folderData.subFolders = undefined;
     }
 
+    this.createEmailTreeController = function(domElementId, scope, location, mailService) {
+
+        loadStart();
+
+        function loadStart() {
+
+            mailCore.showLoading();
+
+            mailService.getStartingFolder('', 0, 20).then( // TODO unhardcode
+                function (result) {
+                    mailCore.rearrangeFolderData(scope, result.data);
+                    var screenData = scope.folder;
+
+                    var ulNode = document.createElement("ul");
+                    ulNode.setAttribute('class', 'mail-tree');
+                    if(scope.root.name != "") {
+                        appendTreeNode(ulNode, scope.root, screenData.fullName, onClick);
+                    } else {
+                        var folder = null;
+                        var domElement = null;
+                        scope.root.subFolders.forEach(function(item) {
+                            var node = appendTreeNode(ulNode, item, 'INBOX', onClick);// TODO Sure it will always going to be INBOX?
+                            if(item.fullName == 'INBOX') {
+                                folder = item;
+                                domElement = node;
+                            }
+                        });
+                        if(folder) {
+                            scope.folder = folder;
+                            getMessages(folder.fullName, domElement, 0, 20); // TODO unhardcode
+                        } else {
+                            // TODO error
+                        }
+
+                    }
+                    document.getElementById(domElementId).appendChild(ulNode);
+
+                    location.path('/main');
+                    mailCore.showMain();
+                },
+                function (error) {
+                    if (error.status == 401) {
+                        mailCore.loginAndRetry(loadStart);
+                    } else {
+                        // TODO create error message
+                        console.log("ERROR: status " + error.status);
+                    }
+                }
+            );
+        }
+
+        function onClick(event) {
+            event.stopPropagation();
+            var domElement = this;
+            var ulNode = getNthElement(this, 1);
+            var fullName = this.getAttribute('data-full-name');
+            var expanded = this.getAttribute('data-is-expanded') == 'true';
+            var selected = this.getAttribute('class').indexOf('mail-tree-node-selected') != -1;
+            var loaded = this.getAttribute('data-is-loaded') == 'true';
+
+            if(!selected) {
+                var selectedElement = $('.mail-tree-node-selected')[0];
+                selectedElement.setAttribute('class', 'mail-tree-node');
+                this.setAttribute('class', 'mail-tree-node mail-tree-node-selected');
+                getMessages(fullName, domElement, 0, 20); // TODO unhardcode
+            } else if(expanded) {
+                $(ulNode).hide(200);
+                this.setAttribute('data-is-expanded', 'false');
+            } else if(loaded) {
+                $(ulNode).show(200);
+                this.setAttribute('data-is-expanded', 'true');
+            } else {
+                addLoadingGif(domElement);
+                mailService.getSubfolders(fullName).then(
+                    function (result) {
+                        result.data.forEach(function(item) { appendTreeNode(ulNode, item, '', onClick) });
+                        domElement.setAttribute('data-is-expanded', 'true');
+                        domElement.setAttribute('data-is-loaded', 'true');
+                        removeLoadingGif(domElement);
+                        $(ulNode).show(200);
+                    },
+                    function (error) {
+                        removeLoadingGif(domElement);
+                        if (error.status == 401) {
+                            mailCore.showLogin();
+                        } else {
+                            // TODO create error message
+                            console.log("ERROR: status " + error.status);
+                        }
+                    }
+                );
+                this.setAttribute('data-is-expanded', 'true');
+                this.setAttribute('data-is-loaded', 'true');
+            }
+        }
+
+        function appendTreeNode(ulNode, root, selected, clickListener) {
+
+            return appendTreeNode(ulNode, root);
+
+            function appendTreeNode(ulNode, folder) {
+                var node = document.createElement("li");
+                var nodeText = document.createElement("div");
+                var nodeList = document.createElement("ul");
+
+                nodeList.setAttribute('class', 'mail-tree');
+                nodeText.appendChild(document.createTextNode(folder.name));
+                node.setAttribute('class', 'mail-tree-node' + (folder.fullName == selected? ' mail-tree-node-selected': ''));
+                node.setAttribute('data-full-name', folder.fullName);
+                node.appendChild(nodeText);
+                node.appendChild(nodeList);
+                node.addEventListener('click', clickListener);
+                node.addEventListener('dblclick', function(e){ e.preventDefault(); });
+                ulNode.appendChild(node);
+
+                if(folder.subFolders) {
+                    node.setAttribute('data-is-loaded', 'true');
+                    node.setAttribute('data-is-expanded', 'true');
+                    folder.subFolders.forEach(function (item) { appendTreeNode(nodeList, item); });
+                } else {
+                    node.setAttribute('data-is-loaded', 'false');
+                    node.setAttribute('data-is-expanded', 'false');
+                    $(nodeList).hide();
+                }
+
+                return node;
+            }
+        }
+
+        function getMessages(fullFolderName, domElement, pageIndex, pageSize) {
+            addLoadingGif(domElement);
+            mailService.getFolder(fullFolderName, pageIndex, pageSize).then(
+                function (result) {
+                    scope.folder = result.data;
+                    removeLoadingGif(domElement);
+                },
+                function (error) {
+                    removeLoadingGif(domElement);
+                    if (error.status == 401) {
+                        mailCore.showLogin();
+                    } else {
+                        // TODO create error message
+                        console.log("ERROR: status " + error.status);
+                    }
+                }
+            );
+        }
+
+        function addLoadingGif(domElement) {
+            var imgLoading = document.createElement('img');
+            imgLoading.setAttribute('src', 'image/loading-subfolders.gif');
+            getNthElement(domElement, 0).appendChild(imgLoading);
+        }
+
+        function removeLoadingGif(domElement) {
+            var textPart = getNthElement(domElement, 0);
+            textPart.removeChild(textPart.childNodes.item(textPart.childNodes.length - 1));
+        }
+
+        function getNthElement(domElement, childNumber) {
+            var elementNumber = 0;
+            var x;
+            for(x = 0; x < domElement.childNodes.length; x++) {
+                var child = domElement.childNodes.item(x);
+                if(child.nodeType == 1) {
+                    if(childNumber == elementNumber) return child;
+                    elementNumber++;
+                }
+            }
+            return null;
+        }
+
+    }
 })();
 
 
@@ -206,173 +381,6 @@ angular.module('mail', ['ngRoute'])
             return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
         };
 
-        loadStart();
-
-        function loadStart() {
-            mailCore.showLoading();
-
-            mailService.getStartingFolder('', 0, 20).then(
-                function (result) {
-                    mailCore.rearrangeFolderData($scope, result.data);
-                    var screenData = $scope.folder;
-
-                    var domNode = document.createElement("ul");
-                    domNode.setAttribute('class', 'mail-tree');
-                    if($scope.root.name != "") {
-                        appendTreeNode(domNode, $scope.root, screenData.fullName, onClick);
-                    } else {
-                        var folder = null;
-                        var element = null;
-                        $scope.root.subFolders.forEach(function(item) {
-                            var node = appendTreeNode(domNode, item, 'INBOX', onClick);// TODO Sure it will always going to be INBOX?
-                            if(item.fullName == 'INBOX') {
-                                folder = item;
-                                element = node;
-                            }
-                        });
-                        if(folder) {
-                            $scope.folder = folder;
-                            getMessages(folder.fullName, element, 0, 20); // TODO unhardcode
-                        } else {
-                            // TODO error
-                        }
-
-                    }
-                    document.getElementById('mail-folder-tree').appendChild(domNode);
-
-                    $location.path('/main');
-                    mailCore.showMain();
-                },
-                function (error) {
-                    if (error.status == 401) {
-                        mailCore.loginAndRetry(loadStart);
-                    } else {
-                        // TODO create error message
-                        console.log("ERROR: status " + error.status);
-                    }
-                }
-            );
-        }
-
-        function appendTreeNode(ulNode, root, selected, clickListener) {
-
-            return appendTreeNode(ulNode, root);
-
-            function appendTreeNode(ulNode, folder) {
-                var node = document.createElement("li");
-                var nodeText = document.createElement("div");
-                var nodeList = document.createElement("ul");
-
-                nodeList.setAttribute('class', 'mail-tree');
-                nodeText.appendChild(document.createTextNode(folder.name));
-                node.setAttribute('class', 'mail-tree-node' + (folder.fullName == selected? ' mail-tree-node-selected': ''));
-                node.setAttribute('data-full-name', folder.fullName);
-                node.appendChild(nodeText);
-                node.appendChild(nodeList);
-                node.addEventListener('click', clickListener);
-                node.addEventListener('dblclick', function(e){ e.preventDefault(); });
-                ulNode.appendChild(node);
-
-                if(folder.subFolders) {
-                    node.setAttribute('data-is-loaded', 'true');
-                    node.setAttribute('data-is-expanded', 'true');
-                    folder.subFolders.forEach(function (item) { appendTreeNode(nodeList, item); });
-                } else {
-                    node.setAttribute('data-is-loaded', 'false');
-                    node.setAttribute('data-is-expanded', 'false');
-                    $(nodeList).hide();
-                }
-
-                return node;
-            }
-        }
-
-        function getNthElement(node, childNumber) {
-            var elementNumber = 0;
-            var x;
-            for(x = 0; x < node.childNodes.length; x++) {
-                var child = node.childNodes.item(x);
-                if(child.nodeType == 1) {
-                    if(childNumber == elementNumber) return child;
-                    elementNumber++;
-                }
-            }
-            return null;
-        }
-
-        function onClick(event) {
-            event.stopPropagation();
-            var element = this;
-            var list = getNthElement(this, 1);
-            var fullName = this.getAttribute('data-full-name');
-            var expanded = this.getAttribute('data-is-expanded') == 'true';
-            var selected = this.getAttribute('class').indexOf('mail-tree-node-selected') != -1;
-            var loaded = this.getAttribute('data-is-loaded') == 'true';
-
-            if(!selected) {
-                var selectedElement = $('.mail-tree-node-selected')[0];
-                selectedElement.setAttribute('class', 'mail-tree-node');
-                this.setAttribute('class', 'mail-tree-node mail-tree-node-selected');
-                getMessages(fullName, element, 0, 20); // TODO unhardcode
-            } else if(expanded) {
-                $(list).hide(200);
-                this.setAttribute('data-is-expanded', 'false');
-            } else if(loaded) {
-                $(list).show(200);
-                this.setAttribute('data-is-expanded', 'true');
-            } else {
-                addLoadingGif(element);
-                mailService.getSubfolders(fullName).then(
-                    function (result) {
-                        result.data.forEach(function(item) { appendTreeNode(list, item, '', onClick) });
-                        element.setAttribute('data-is-expanded', 'true');
-                        element.setAttribute('data-is-loaded', 'true');
-                        removeLoadingGif(element);
-                        $(list).show(200);
-                    },
-                    function (error) {
-                        removeLoadingGif(element);
-                        if (error.status == 401) {
-                            mailCore.showLogin();
-                        } else {
-                            // TODO create error message
-                            console.log("ERROR: status " + error.status);
-                        }
-                    }
-                );
-                this.setAttribute('data-is-expanded', 'true');
-                this.setAttribute('data-is-loaded', 'true');
-            }
-        }
-
-        function getMessages(fullName, element, pageIndex, pageSize) {
-            addLoadingGif(element);
-            mailService.getFolder(fullName, pageIndex, pageSize).then(
-                function (result) {
-                    $scope.folder = result.data;
-                    removeLoadingGif(element);
-                },
-                function (error) {
-                    removeLoadingGif(element);
-                    if (error.status == 401) {
-                        mailCore.showLogin();
-                    } else {
-                        // TODO create error message
-                        console.log("ERROR: status " + error.status);
-                    }
-                }
-            );
-        }
-
-        function addLoadingGif(element) {
-            var imgLoading = document.createElement('img');
-            imgLoading.setAttribute('src', 'image/loading-subfolders.gif');
-            getNthElement(element, 0).appendChild(imgLoading);
-        }
-
-        function removeLoadingGif(element) {
-            var textPart = getNthElement(element, 0);
-            textPart.removeChild(textPart.childNodes.item(textPart.childNodes.length - 1));
-        }
+        mailCore.createEmailTreeController('mail-folder-tree', $scope, $location, mailService);
 
     });
