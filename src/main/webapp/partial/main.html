@@ -24,9 +24,9 @@
          <div class="mail-row-date">{{ formatDate(message.sentDate) }}</div>
     </div>
 
-    <button data-ng-click="previousEmailPage()">prev</button><!-- data-ng-if="getPageIndex() > 0"-->
-    <button data-ng-click="nextEmailPage()">next</button><!-- data-ng-if="getPageIndex() < getTotalPages()"-->
-    {{ getPageIndex() }} - {{ getTotalPages() }}
+    <span data-ng-click="previousEmailPage()" data-ng-if="getPageIndex() > 0">prev</span>
+    {{ getPageIndex() + 1 }} / {{ getTotalPages() }}
+    <span data-ng-click="nextEmailPage()" data-ng-if="getPageIndex() + 1 < getTotalPages()">next</span>
+    | <span data-ng-click="goToEmailPage()">Go to page: </span><input type="text" data-ng-model="pageNumber">
 
-    <pre>{{ folder | json }}</pre>
 </div>
