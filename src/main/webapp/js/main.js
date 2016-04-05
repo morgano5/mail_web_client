@@ -1,9 +1,10 @@
 
 var mailCore = new (function () {
 
-    var functionAfterLogin = undefined;
-
+    var functionAfterLogin = null;
     var mailCore = this;
+
+    this.mailPageLength = 20;
 
     this.loginAndRetry = function (fnToExecute) {
         mailCore.showLogin();
@@ -13,7 +14,7 @@ var mailCore = new (function () {
     this.executePendingAfterLogin = function() {
         if(functionAfterLogin) {
             functionAfterLogin();
-            functionAfterLogin = undefined;
+            functionAfterLogin = null;
         }
     };
 
@@ -35,26 +36,26 @@ var mailCore = new (function () {
         $(".mail-main").show();
     };
 
-    this.rearrangeFolderData = function(scope, folderData) {
-        var parent = folderData.parent;
-        var current = {parent: folderData.parent, name: folderData.name, fullName: folderData.fullName,
-            subFolders: folderData.subFolders};
-        while(parent) {
-            parent.subFolders.push(current);
-            parent.subFolders.sort(function (folder1, folder2) {
-                return folder1.fullNane < folder2.fullName ? -1:(folder1.fullNane > folder2.fullName? 1: 0);
-            });
-            delete current.parent;
-            current = parent;
-            parent = current.parent;
-        }
-        scope.root = current;
-        scope.folder = folderData;
-        folderData.parent = undefined;
-        folderData.subFolders = undefined;
-    }
+    this.getMessages = function(fullFolderName, domElement, pageIndex, scope, mailService) {
+        if(domElement) addLoadingGif(domElement);
+        mailService.getFolder(fullFolderName, pageIndex, mailCore.mailPageLength).then(
+            function (result) {
+                scope.folder = result.data;
+                if(domElement) removeLoadingGif(domElement);
+            },
+            function (error) {
+                if(domElement) removeLoadingGif(domElement);
+                if (error.status == 401) {
+                    mailCore.loginAndRetry(mailCore.getMessages(fullFolderName, domElement, pageIndex, scope, mailService));
+                } else {
+                    // TODO create error message
+                    console.log("ERROR: status " + error.status);
+                }
+            }
+        );
+    };
 
-    this.createEmailTreeController = function(domElementId, scope, location, mailService) {
+    this.createEmailTreeController = function(domElementId, scope, mailService) {
 
         loadStart();
 
@@ -62,9 +63,9 @@ var mailCore = new (function () {
 
             mailCore.showLoading();
 
-            mailService.getStartingFolder('', 0, 20).then( // TODO unhardcode
+            mailService.getStartingFolder('', 0, mailCore.mailPageLength).then( // TODO unhardcode the 0
                 function (result) {
-                    mailCore.rearrangeFolderData(scope, result.data);
+                    rearrangeFolderData(scope, result.data);
                     var screenData = scope.folder;
 
                     var ulNode = document.createElement("ul");
@@ -83,7 +84,7 @@ var mailCore = new (function () {
                         });
                         if(folder) {
                             scope.folder = folder;
-                            getMessages(folder.fullName, domElement, 0, 20); // TODO unhardcode
+                            mailCore.getMessages(folder.fullName, domElement, 0, scope, mailService); // TODO unhardcode the 0
                         } else {
                             // TODO error
                         }
@@ -91,7 +92,6 @@ var mailCore = new (function () {
                     }
                     document.getElementById(domElementId).appendChild(ulNode);
 
-                    location.path('/main');
                     mailCore.showMain();
                 },
                 function (error) {
@@ -118,7 +118,7 @@ var mailCore = new (function () {
                 var selectedElement = $('.mail-tree-node-selected')[0];
                 selectedElement.setAttribute('class', 'mail-tree-node');
                 this.setAttribute('class', 'mail-tree-node mail-tree-node-selected');
-                getMessages(fullName, domElement, 0, 20); // TODO unhardcode
+                getMessages(fullName, domElement, 0, scope, mailService); // TODO unhardcode the 0
             } else if(expanded) {
                 $(ulNode).hide(200);
                 this.setAttribute('data-is-expanded', 'false');
@@ -183,50 +183,51 @@ var mailCore = new (function () {
             }
         }
 
-        function getMessages(fullFolderName, domElement, pageIndex, pageSize) {
-            addLoadingGif(domElement);
-            mailService.getFolder(fullFolderName, pageIndex, pageSize).then(
-                function (result) {
-                    scope.folder = result.data;
-                    removeLoadingGif(domElement);
-                },
-                function (error) {
-                    removeLoadingGif(domElement);
-                    if (error.status == 401) {
-                        mailCore.showLogin();
-                    } else {
-                        // TODO create error message
-                        console.log("ERROR: status " + error.status);
-                    }
-                }
-            );
-        }
+    };
 
-        function addLoadingGif(domElement) {
-            var imgLoading = document.createElement('img');
-            imgLoading.setAttribute('src', 'image/loading-subfolders.gif');
-            getNthElement(domElement, 0).appendChild(imgLoading);
+    function rearrangeFolderData(scope, folderData) {
+        var parent = folderData.parent;
+        var current = {parent: folderData.parent, name: folderData.name, fullName: folderData.fullName,
+            subFolders: folderData.subFolders};
+        while(parent) {
+            parent.subFolders.push(current);
+            parent.subFolders.sort(function (folder1, folder2) {
+                return folder1.fullNane < folder2.fullName ? -1:(folder1.fullNane > folder2.fullName? 1: 0);
+            });
+            delete current.parent;
+            current = parent;
+            parent = current.parent;
         }
-
-        function removeLoadingGif(domElement) {
-            var textPart = getNthElement(domElement, 0);
-            textPart.removeChild(textPart.childNodes.item(textPart.childNodes.length - 1));
-        }
-
-        function getNthElement(domElement, childNumber) {
-            var elementNumber = 0;
-            var x;
-            for(x = 0; x < domElement.childNodes.length; x++) {
-                var child = domElement.childNodes.item(x);
-                if(child.nodeType == 1) {
-                    if(childNumber == elementNumber) return child;
-                    elementNumber++;
-                }
-            }
-            return null;
-        }
-
+        scope.root = current;
+        scope.folder = folderData;
+        delete folderData.parent;
+        delete folderData.subFolders;
     }
+
+    function addLoadingGif(domElement) {
+        var imgLoading = document.createElement('img');
+        imgLoading.setAttribute('src', 'image/loading-subfolders.gif');
+        getNthElement(domElement, 0).appendChild(imgLoading);
+    }
+
+    function removeLoadingGif(domElement) {
+        var textPart = getNthElement(domElement, 0);
+        textPart.removeChild(textPart.childNodes.item(textPart.childNodes.length - 1));
+    }
+
+    function getNthElement(domElement, childNumber) {
+        var elementNumber = 0;
+        var x;
+        for(x = 0; x < domElement.childNodes.length; x++) {
+            var child = domElement.childNodes.item(x);
+            if(child.nodeType == 1) {
+                if(childNumber == elementNumber) return child;
+                elementNumber++;
+            }
+        }
+        return null;
+    }
+
 })();
 
 
@@ -381,6 +382,32 @@ angular.module('mail', ['ngRoute'])
             return year + '-' + month + '-' + day + ' ' + hour + ':' + minute;
         };
 
-        mailCore.createEmailTreeController('mail-folder-tree', $scope, $location, mailService);
+        $scope.nextEmailPage = function() {
+            mailCore.showLoading();
+            mailCore.getMessages($scope.folder.fullName, null, $scope.getPageIndex() + 1, $scope, mailService);
+            $scope.folder.pageIndex++;
+        };
+
+        $scope.previousEmailPage = function() {
+
+            // TODO
+        };
+
+        $scope.isLastPage = function() {
+            return $scope.getTotalPages() == $scope.getPageIndex() + 1;
+        };
+
+        $scope.getPageIndex = function() {
+            if(!$scope.folder) $scope.folder = {};
+            if(!$scope.folder.pageIndex) $scope.folder.pageIndex = 0;
+            return $scope.folder.pageIndex;
+        };
+
+        $scope.getTotalPages = function() {
+            return Math.floor($scope.folder.totalMessages / mailCore.mailPageLength)
+                + $scope.folder.totalMessages % mailCore.mailPageLength;
+        };
+
+        mailCore.createEmailTreeController('mail-folder-tree', $scope, mailService);
 
     });

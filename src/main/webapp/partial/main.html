@@ -1,6 +1,6 @@
 <div>
     main
-    <br /><button data-ng-click="logout()">Logout</button>
+    <br /><button data-ng-click="logout()">Logout</button><br />
 
 
 
@@ -15,21 +15,6 @@
     Root:
     <div id="mail-folder-tree"></div>
 
-
-
-
-    Subfolders:
-    <div data-ng-repeat="subFolder in folder.subFolders">
-        {{ subFolder.name }} <button data-ng-click="loadFolder(subFolder.fullName)">x</button>
-        <pre>
-        {{ subFolder | json }}
-        </pre>
-    </div>
-
-
-
-
-
     Page Messages:<br />
     <div class="mail-row" data-ng-repeat="message in folder.pageMessages">
         <div class="mail-row-from">
@@ -39,5 +24,9 @@
          <div class="mail-row-date">{{ formatDate(message.sentDate) }}</div>
     </div>
 
+    <button data-ng-click="previousEmailPage()">prev</button><!-- data-ng-if="getPageIndex() > 0"-->
+    <button data-ng-click="nextEmailPage()">next</button><!-- data-ng-if="getPageIndex() < getTotalPages()"-->
+    {{ getPageIndex() }} - {{ getTotalPages() }}
 
+    <pre>{{ folder | json }}</pre>
 </div>

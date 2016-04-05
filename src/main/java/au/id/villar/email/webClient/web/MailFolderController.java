@@ -30,7 +30,7 @@ public class MailFolderController {
     @Permissions(Role.MAIL_USER)
     @RequestMapping(value = "/mail/start", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody MailFolder getStartingFolder(
-            @RequestParam(required = false) String fullFolderName,
+            @RequestParam(required = false, defaultValue = "") String fullFolderName,
             @RequestParam(required = false, defaultValue = "0") int startingPageIndex,
             @RequestParam(required = false, defaultValue = "10") int pageLength,
             UserPasswordHolder userPassword) {
