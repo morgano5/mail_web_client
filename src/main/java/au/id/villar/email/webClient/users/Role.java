@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.domain;
+package au.id.villar.email.webClient.users;
 
 public enum Role {
     ADMINISTRATOR,

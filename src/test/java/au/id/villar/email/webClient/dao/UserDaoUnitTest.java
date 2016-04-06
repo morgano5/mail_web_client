@@ -1,7 +1,8 @@
 package au.id.villar.email.webClient.dao;
 
 import au.id.villar.email.webClient.TestAppConfig;
-import au.id.villar.email.webClient.domain.User;
+import au.id.villar.email.webClient.users.User;
+import au.id.villar.email.webClient.users.UserDao;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;

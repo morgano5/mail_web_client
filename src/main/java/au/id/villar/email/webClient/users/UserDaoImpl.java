@@ -1,6 +1,5 @@
-package au.id.villar.email.webClient.dao;
+package au.id.villar.email.webClient.users;
 
-import au.id.villar.email.webClient.domain.User;
 import org.springframework.stereotype.Repository;
 
 import javax.persistence.EntityManager;

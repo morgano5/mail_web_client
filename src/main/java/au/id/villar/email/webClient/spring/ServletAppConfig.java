@@ -1,8 +1,8 @@
 package au.id.villar.email.webClient.spring;
 
-import au.id.villar.email.webClient.domain.Role;
-import au.id.villar.email.webClient.domain.User;
-import au.id.villar.email.webClient.service.UserService;
+import au.id.villar.email.webClient.users.Role;
+import au.id.villar.email.webClient.users.User;
+import au.id.villar.email.webClient.users.UserService;
 import au.id.villar.email.webClient.tokens.*;
 import au.id.villar.email.webClient.web.JSONMessageConverter;
 import au.id.villar.email.webClient.web.Permissions;

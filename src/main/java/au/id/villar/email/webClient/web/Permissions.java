@@ -1,6 +1,6 @@
 package au.id.villar.email.webClient.web;
 
-import au.id.villar.email.webClient.domain.Role;
+import au.id.villar.email.webClient.users.Role;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

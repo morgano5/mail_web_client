@@ -1,6 +1,4 @@
-package au.id.villar.email.webClient.dao;
-
-import au.id.villar.email.webClient.domain.User;
+package au.id.villar.email.webClient.users;
 
 public interface UserDao {
 

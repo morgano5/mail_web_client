@@ -1,8 +1,5 @@
-package au.id.villar.email.webClient.service;
+package au.id.villar.email.webClient.users;
 
-import au.id.villar.email.webClient.dao.UserDao;
-import au.id.villar.email.webClient.domain.Role;
-import au.id.villar.email.webClient.domain.User;
 import org.apache.commons.codec.digest.Crypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

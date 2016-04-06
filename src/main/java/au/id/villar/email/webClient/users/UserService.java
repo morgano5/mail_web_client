@@ -1,7 +1,4 @@
-package au.id.villar.email.webClient.service;
-
-import au.id.villar.email.webClient.domain.Role;
-import au.id.villar.email.webClient.domain.User;
+package au.id.villar.email.webClient.users;
 
 public interface UserService {
 
