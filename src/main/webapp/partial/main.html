@@ -20,7 +20,7 @@
         <div class="mail-row-from">
             <span data-ng-repeat="from in message.from" title="{{ toEmail(from) }}">{{ toName(from) }}</span>
         </div>
-        <div class="mail-row-subject">{{ message.subject }}</div>
+        <div class="mail-row-subject"><a href="api/mail/messages/{{ message.id }}">{{ message.subject }}</a></div>
          <div class="mail-row-date">{{ formatDate(message.sentDate) }}</div>
     </div>
 

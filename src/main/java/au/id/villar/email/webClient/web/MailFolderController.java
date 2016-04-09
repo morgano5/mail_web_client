@@ -1,5 +1,6 @@
 package au.id.villar.email.webClient.web;
 
+import au.id.villar.email.webClient.mail.Mailbox;
 import au.id.villar.email.webClient.users.Role;
 import au.id.villar.email.webClient.mail.MailFolder;
 import au.id.villar.email.webClient.mail.MailboxService;
@@ -8,12 +9,13 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.portlet.ModelAndView;
 
 import javax.mail.MessagingException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 @Controller("/mail")
 public class MailFolderController {
@@ -68,6 +70,22 @@ public class MailFolderController {
                     .getSubFolders(fullFolderName);
         } catch (MessagingException e) {
             LOG.error("Error getting subfolders: " + e.getMessage(), e);
+            throw new InternalServerErrorException();
+        }
+    }
+
+    @Permissions(Role.MAIL_USER)
+    @RequestMapping(value = "/mail/messages/{mailId}", method = RequestMethod.GET)
+    public void getContent(@PathVariable("mailId") String mailId, UserPasswordHolder userPassword,
+            ModelAndView modelAndView, HttpServletRequest request, HttpServletResponse response) {
+
+        try {
+            modelAndView.clear();
+            Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
+            boolean found = mailbox.transferMainContent(mailId, response.getOutputStream());
+            if(!found) throw new NotFoundErrorException();
+        } catch (IOException | MessagingException e) {
+            LOG.error("Error getting content: " + e.getMessage(), e);
             throw new InternalServerErrorException();
         }
     }

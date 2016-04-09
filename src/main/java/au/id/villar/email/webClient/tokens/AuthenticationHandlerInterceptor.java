@@ -273,6 +273,7 @@ public class AuthenticationHandlerInterceptor extends HandlerInterceptorAdapter 
                 + tokenService.getExpiryTimeMillis()) / 1000);
         tokenCookie.setMaxAge(maxAge);
         tokenCookie.setHttpOnly(true);
+        tokenCookie.setPath("/");
         response.addCookie(tokenCookie);
     }
 

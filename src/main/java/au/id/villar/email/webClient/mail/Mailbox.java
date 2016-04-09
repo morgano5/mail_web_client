@@ -1,6 +1,13 @@
 package au.id.villar.email.webClient.mail;
 
+import com.sun.mail.imap.IMAPFolder;
+import com.sun.mail.imap.IMAPMessage;
+
 import javax.mail.*;
+import javax.mail.search.SearchTerm;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public class Mailbox {
 
@@ -22,9 +29,9 @@ public class Mailbox {
 
         runWithStore(store -> {
 
-            Folder folder = fullFolderName != null && !fullFolderName.isEmpty() ?
-                    store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password)):
-                    store.getDefaultFolder();
+            IMAPFolder folder = fullFolderName != null && !fullFolderName.isEmpty() ?
+                    (IMAPFolder)store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password)):
+                    (IMAPFolder)store.getDefaultFolder();
             populateMailFolder(folder, mailFolder);
 
             mailFolder.setSubFolders(getSubFolders(folder, null));
@@ -52,7 +59,8 @@ public class Mailbox {
         MailFolder mailFolder = new MailFolder();
 
         runWithStore(store -> {
-            Folder folder = store.getFolder(new URLName("imap", host, 993, fullFolderName, username, password));
+            IMAPFolder folder = (IMAPFolder)store.getFolder(
+                    new URLName("imap", host, 993, fullFolderName, username, password));
             populateMailFolder(folder, mailFolder);
             populateMessages(folder, mailFolder, startingPageIndex, pageLength);
         });
@@ -62,7 +70,6 @@ public class Mailbox {
 
     public MailFolder[] getSubFolders(String fullFolderName) throws MessagingException {
 
-        class ObjectHolder<T> { private T obj; }
         ObjectHolder<MailFolder[]> holder = new ObjectHolder<>();
 
         runWithStore(store -> {
@@ -71,6 +78,34 @@ public class Mailbox {
         });
 
         return holder.obj;
+    }
+
+    public boolean transferMainContent(String mailMessageId, OutputStream output) throws MessagingException {
+        String fullFolderName = MailMessage.extractFolder(mailMessageId);
+        long uid = MailMessage.extractUID(mailMessageId);
+        ObjectHolder<Boolean> found = new ObjectHolder<>();
+
+        found.obj = false;
+        runWithStore(store -> {
+            IMAPFolder folder = (IMAPFolder)store.getFolder(fullFolderName);
+            if(folder == null) return;
+            runWithFolder(folder, Folder.READ_ONLY, false, f -> {
+                Message message =  f.getMessageByUID(uid);
+                if(message == null) return;
+                found.obj = true;
+                try {
+                    InputStream input = message.getInputStream();
+                    byte[] buffer = new byte[1024];
+                    int read;
+                    while ((read = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, read);
+                    }
+                } catch(IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        });
+        return found.obj;
     }
 
     private void populateMailFolder(Folder folder, MailFolder mailFolder) throws MessagingException {
@@ -82,7 +117,7 @@ public class Mailbox {
         mailFolder.setUnreadMessages(folder.getUnreadMessageCount());
     }
 
-    private void populateMessages(Folder folder, MailFolder mailFolder, int startingPageIndex, int pageLength)
+    private void populateMessages(IMAPFolder folder, MailFolder mailFolder, int startingPageIndex, int pageLength)
             throws MessagingException {
         if((folder.getType() & Folder.HOLDS_MESSAGES) != 0) runWithFolder(folder, Folder.READ_ONLY, false, f -> {
 
@@ -96,13 +131,14 @@ public class Mailbox {
                 Message[] messages = f.getMessages(start, end);
                 mailMessages = new MailMessage[messages.length];
                 for (int i = 0; i < messages.length; i++) {
-                    mailMessages[i] = new MailMessage();
-                    Address[] from = messages[i].getFrom();
+                    IMAPMessage message = (IMAPMessage)messages[i];
+                    mailMessages[i] = new MailMessage(mailFolder.getFullName(), folder.getUID(message));
+                    Address[] from = message.getFrom();
                     String[] mailFrom = new String[from.length];
                     for (int j = 0; j < from.length; j++) mailFrom[j] = from[j].toString();
                     mailMessages[i].setFrom(mailFrom);
-                    mailMessages[i].setSubject(messages[i].getSubject());
-                    mailMessages[i].setSentDate(messages[i].getSentDate());
+                    mailMessages[i].setSubject(message.getSubject());
+                    mailMessages[i].setSentDate(message.getSentDate());
                 }
             }
             mailFolder.setPageMessages(mailMessages);
@@ -124,10 +160,6 @@ public class Mailbox {
         }
         return mailSubFolders;
     }
-
-    @FunctionalInterface private interface StoreOperation { void doOperation(Store store) throws MessagingException; }
-
-    @FunctionalInterface private interface FolderOperation { void doOperation(Folder folder) throws MessagingException; }
 
     private void runWithStore(StoreOperation operation) throws MessagingException {
         MessagingException messagingException = null;
@@ -152,7 +184,7 @@ public class Mailbox {
         }
     }
 
-    private void runWithFolder(Folder folder, int mode, boolean expunge, FolderOperation operation)
+    private void runWithFolder(IMAPFolder folder, int mode, boolean expunge, FolderOperation operation)
             throws MessagingException {
         MessagingException messagingException = null;
         RuntimeException runtimeException = null;
@@ -174,4 +206,36 @@ public class Mailbox {
             if(runtimeException != null) throw runtimeException;
         }
     }
+
+    @FunctionalInterface private interface StoreOperation { void doOperation(Store store) throws MessagingException; }
+
+    @FunctionalInterface private interface FolderOperation { void doOperation(IMAPFolder folder) throws MessagingException; }
+
+    private static class Search {
+        static SearchTerm byMessageId(String messageId) {
+            return new MessageIdSearchTerm(messageId);
+        }
+    }
+
+    private static class MessageIdSearchTerm extends SearchTerm {
+
+        private String id;
+
+        MessageIdSearchTerm(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public boolean match(Message message) {
+            try {
+                String[] data = message.getHeader("Message-ID");
+                return data != null && data.length > 0 && data[0].equals(id);
+            } catch (MessagingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private class ObjectHolder<T> { private T obj; }
+
 }
