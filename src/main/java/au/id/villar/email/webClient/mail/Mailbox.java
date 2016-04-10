@@ -4,12 +4,17 @@ import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IMAPMessage;
 
 import javax.mail.*;
-import javax.mail.search.SearchTerm;
+import javax.mail.internet.MimeMultipart;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 public class Mailbox {
+
+    @FunctionalInterface
+    public interface MessageProcess {
+        void process(IMAPMessage message) throws MessagingException, IOException;
+    }
 
     private String username;
     private String password;
@@ -24,7 +29,7 @@ public class Mailbox {
     }
 
     public MailFolder getStartingFolder(String fullFolderName, int startingPageIndex, int pageLength)
-            throws MessagingException {
+            throws MessagingException, IOException {
         MailFolder mailFolder = new MailFolder();
 
         runWithStore(store -> {
@@ -54,7 +59,7 @@ public class Mailbox {
     }
 
     public MailFolder getFolder(String fullFolderName, int startingPageIndex, int pageLength)
-            throws MessagingException {
+            throws MessagingException, IOException {
 
         MailFolder mailFolder = new MailFolder();
 
@@ -68,7 +73,7 @@ public class Mailbox {
         return mailFolder;
     }
 
-    public MailFolder[] getSubFolders(String fullFolderName) throws MessagingException {
+    public MailFolder[] getSubFolders(String fullFolderName) throws MessagingException, IOException {
 
         ObjectHolder<MailFolder[]> holder = new ObjectHolder<>();
 
@@ -80,7 +85,7 @@ public class Mailbox {
         return holder.obj;
     }
 
-    public boolean transferMainContent(String mailMessageId, OutputStream output) throws MessagingException {
+    public boolean processMessage(String mailMessageId, MessageProcess process) throws MessagingException, IOException {
         String fullFolderName = MailMessage.extractFolder(mailMessageId);
         long uid = MailMessage.extractUID(mailMessageId);
         ObjectHolder<Boolean> found = new ObjectHolder<>();
@@ -89,20 +94,11 @@ public class Mailbox {
         runWithStore(store -> {
             IMAPFolder folder = (IMAPFolder)store.getFolder(fullFolderName);
             if(folder == null) return;
-            runWithFolder(folder, Folder.READ_ONLY, false, f -> {
-                Message message =  f.getMessageByUID(uid);
+            runWithFolder(folder, Folder.READ_ONLY, false, () -> {
+                IMAPMessage message = (IMAPMessage)folder.getMessageByUID(uid);
                 if(message == null) return;
                 found.obj = true;
-                try {
-                    InputStream input = message.getInputStream();
-                    byte[] buffer = new byte[1024];
-                    int read;
-                    while ((read = input.read(buffer)) != -1) {
-                        output.write(buffer, 0, read);
-                    }
-                } catch(IOException e) {
-                    throw new RuntimeException(e);
-                }
+                process.process(message);
             });
         });
         return found.obj;
@@ -118,8 +114,8 @@ public class Mailbox {
     }
 
     private void populateMessages(IMAPFolder folder, MailFolder mailFolder, int startingPageIndex, int pageLength)
-            throws MessagingException {
-        if((folder.getType() & Folder.HOLDS_MESSAGES) != 0) runWithFolder(folder, Folder.READ_ONLY, false, f -> {
+            throws MessagingException, IOException {
+        if((folder.getType() & Folder.HOLDS_MESSAGES) != 0) runWithFolder(folder, Folder.READ_ONLY, false, () -> {
 
             int start = startingPageIndex * pageLength + 1;
             int end = start + pageLength - 1;
@@ -128,7 +124,7 @@ public class Mailbox {
             if (start > end) {
                 mailMessages = new MailMessage[0];
             } else {
-                Message[] messages = f.getMessages(start, end);
+                Message[] messages = folder.getMessages(start, end);
                 mailMessages = new MailMessage[messages.length];
                 for (int i = 0; i < messages.length; i++) {
                     IMAPMessage message = (IMAPMessage)messages[i];
@@ -161,80 +157,51 @@ public class Mailbox {
         return mailSubFolders;
     }
 
-    private void runWithStore(StoreOperation operation) throws MessagingException {
-        MessagingException messagingException = null;
-        RuntimeException runtimeException = null;
+    private void runWithStore(StoreOperation operation) throws MessagingException, IOException {
 
         Store store = session.getStore("imap");
-        try {
-            store.connect(host, username, password);
-            operation.doOperation(store);
-        } catch(MessagingException e) {
-            messagingException = e;
-        } catch(RuntimeException e) {
-            runtimeException = e;
-        } finally {
-            try {
-                store.close();
-            } catch(MessagingException e) {
-                if(messagingException == null) messagingException = e;
-            }
-            if(messagingException != null) throw messagingException;
-            if(runtimeException != null) throw runtimeException;
-        }
+
+        runWithObject(() -> { store.connect(host, username, password); operation.doOperation(store); }, store::close);
+
     }
 
-    private void runWithFolder(IMAPFolder folder, int mode, boolean expunge, FolderOperation operation)
-            throws MessagingException {
+    private void runWithFolder(IMAPFolder folder, int mode, boolean expunge, MailOperation operation)
+            throws MessagingException, IOException {
+
+        runWithObject(() -> { folder.open(mode); operation.doOperation(); }, () -> folder.close(expunge));
+    }
+
+    private void runWithObject(MailOperation operation, MailClosing close)
+            throws MessagingException, IOException {
         MessagingException messagingException = null;
+        IOException ioException = null;
         RuntimeException runtimeException = null;
 
         try {
-            folder.open(mode);
-            operation.doOperation(folder);
+            operation.doOperation();
         } catch(MessagingException e) {
             messagingException = e;
+        } catch(IOException e) {
+            ioException = e;
         } catch(RuntimeException e) {
             runtimeException = e;
         } finally {
             try {
-                folder.close(expunge);
+                close.doClose();
             } catch(MessagingException e) {
                 if(messagingException == null) messagingException = e;
             }
             if(messagingException != null) throw messagingException;
+            if(ioException != null) throw ioException;
             if(runtimeException != null) throw runtimeException;
         }
     }
 
-    @FunctionalInterface private interface StoreOperation { void doOperation(Store store) throws MessagingException; }
+    @FunctionalInterface private interface StoreOperation { void doOperation(Store store) throws MessagingException, IOException; }
 
-    @FunctionalInterface private interface FolderOperation { void doOperation(IMAPFolder folder) throws MessagingException; }
+    @FunctionalInterface private interface MailOperation { void doOperation() throws MessagingException, IOException; }
 
-    private static class Search {
-        static SearchTerm byMessageId(String messageId) {
-            return new MessageIdSearchTerm(messageId);
-        }
-    }
-
-    private static class MessageIdSearchTerm extends SearchTerm {
-
-        private String id;
-
-        MessageIdSearchTerm(String id) {
-            this.id = id;
-        }
-
-        @Override
-        public boolean match(Message message) {
-            try {
-                String[] data = message.getHeader("Message-ID");
-                return data != null && data.length > 0 && data[0].equals(id);
-            } catch (MessagingException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
+    @FunctionalInterface private interface MailClosing { void doClose() throws MessagingException; }
 
     private class ObjectHolder<T> { private T obj; }
 

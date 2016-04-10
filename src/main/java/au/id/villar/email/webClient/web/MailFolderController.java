@@ -39,7 +39,7 @@ public class MailFolderController {
         try {
             return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
                     .getStartingFolder(fullFolderName, startingPageIndex, pageLength);
-        } catch (MessagingException e) {
+        } catch (MessagingException | IOException e) {
             LOG.error("Error getting starting folder: " + e.getMessage(), e);
             throw new InternalServerErrorException();
         }
@@ -55,7 +55,7 @@ public class MailFolderController {
         try {
             return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
                     .getFolder(fullFolderName, startingPageIndex, pageLength);
-        } catch (MessagingException e) {
+        } catch (MessagingException | IOException e) {
             LOG.error("Error getting folder: " + e.getMessage(), e);
             throw new InternalServerErrorException();
         }
@@ -68,7 +68,7 @@ public class MailFolderController {
         try {
             return service.getMailbox(userPassword.getUsername(), userPassword.getPassword())
                     .getSubFolders(fullFolderName);
-        } catch (MessagingException e) {
+        } catch (MessagingException | IOException e) {
             LOG.error("Error getting subfolders: " + e.getMessage(), e);
             throw new InternalServerErrorException();
         }
@@ -79,14 +79,8 @@ public class MailFolderController {
     public void getContent(@PathVariable("mailId") String mailId, UserPasswordHolder userPassword,
             ModelAndView modelAndView, HttpServletRequest request, HttpServletResponse response) {
 
-        try {
-            modelAndView.clear();
-            Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
-            boolean found = mailbox.transferMainContent(mailId, response.getOutputStream());
-            if(!found) throw new NotFoundErrorException();
-        } catch (IOException | MessagingException e) {
-            LOG.error("Error getting content: " + e.getMessage(), e);
-            throw new InternalServerErrorException();
-        }
+        modelAndView.clear();
+        Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
+        new MailContentProcessor(mailbox).transferMainContent(mailId, response);
     }
 }
