@@ -5,11 +5,9 @@ import com.sun.mail.imap.IMAPBodyPart;
 import com.sun.mail.imap.IMAPMessage;
 import org.apache.log4j.Logger;
 
-import javax.mail.BodyPart;
-import javax.mail.Header;
-import javax.mail.MessagingException;
-import javax.mail.Multipart;
+import javax.mail.*;
 import javax.mail.internet.MimeMultipart;
+import javax.mail.internet.MimePart;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -41,24 +39,26 @@ class MailContentProcessor {
 
     private InputStream getMainContentAndSetHeaders(IMAPMessage message, HttpServletResponse response)
             throws MessagingException, IOException {
-        Object content = message.getContent();
-        if(content instanceof MimeMultipart) {
-            MimeMultipart multipart = (MimeMultipart)content;
-
-            return partsInfo(multipart);
-//            String contentType = multipart.getContentType();
-//            int pos = contentType.indexOf(';');
-//            contentType = contentType.substring(0, pos != -1? pos: contentType.length());
+        return partsInfo(message);
+//        Object content = message.getContent();
+//        if(content instanceof MimeMultipart) {
+//            MimeMultipart multipart = (MimeMultipart)content;
 //
-//            switch(contentType) {
-//                case "multipart/alternative":
-//                    return sendMultipartAlternative(multipart, response);
-//                default:
-//                    return message.getInputStream();
-//            }
-        } else {
-            return message.getInputStream();
-        }
+//            return partsInfo(multipart);
+////            String contentType = multipart.getContentType();
+////            int pos = contentType.indexOf(';');
+////            contentType = contentType.substring(0, pos != -1? pos: contentType.length());
+////
+////            switch(contentType) {
+////                case "multipart/alternative":
+////                    return sendMultipartAlternative(multipart, response);
+////                default:
+////                    return message.getInputStream();
+////            }
+//        } else {
+//            return message.getInputStream();
+//        }
+////          return message.getInputStream();
     }
 
     private InputStream sendMultipartAlternative(MimeMultipart multipart, HttpServletResponse response)
@@ -94,6 +94,33 @@ class MailContentProcessor {
         }
     }
 
+    private InputStream partsInfo(Part part) throws IOException, MessagingException {
+        StringBuilder builder = new StringBuilder();
+        partsInfo("", part, builder);
+        return new ByteArrayInputStream(builder.toString().getBytes());
+    }
+
+    private void partsInfo(String identation, Part part, StringBuilder builder) throws MessagingException, IOException {
+        boolean isMultipart = false;
+        Enumeration enumeration = part.getAllHeaders();
+        while(enumeration.hasMoreElements()) {
+            Header header = (Header)enumeration.nextElement();
+            if(header.getName().equalsIgnoreCase("Content-type") && header.getValue().contains("multipart")) isMultipart = true;
+            builder.append(identation).append(" >> ").append(header.getName()).append(':').append(header.getValue()).append('\n');
+        }
+        if(isMultipart) {
+            Multipart multipart = (Multipart)part.getContent();
+            int count = multipart.getCount();
+            identation = "    " + identation;
+            for(int x = 0; x < count; x++) {
+                BodyPart bodyPart = multipart.getBodyPart(x);
+                builder.append(identation).append(" PART #").append(x).append('\n');
+                partsInfo(identation, bodyPart, builder);
+                builder.append("\n\n");
+            }
+        }
+
+    }
 
 
 
