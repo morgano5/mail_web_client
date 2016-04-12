@@ -70,30 +70,6 @@ class MailContentProcessor {
 
 
 
-    private InputStream partsInfo(MimeMultipart multipart) throws MessagingException, IOException {
-        StringBuilder builder = new StringBuilder();
-        partsInfo("", multipart, builder);
-        return new ByteArrayInputStream(builder.toString().getBytes());
-    }
-
-
-    private void partsInfo(String identation, MimeMultipart multipart, StringBuilder builder) throws MessagingException, IOException {
-        int count = multipart.getCount();
-        for(int x = 0; x < count; x++) {
-            IMAPBodyPart part = (IMAPBodyPart)multipart.getBodyPart(x);
-            Enumeration enumeration = part.getAllHeaders();
-            builder.append(identation).append(" PART #").append(x).append('\n');
-            while(enumeration.hasMoreElements()) {
-                Header header = (Header)enumeration.nextElement();
-                builder.append(identation).append(" >> ").append(header.getName()).append(':').append(header.getValue()).append('\n');
-            }
-            if(part.getContentType().contains("multipart")) {
-                partsInfo(identation + "    ", (MimeMultipart)part.getContent(), builder);
-            }
-            builder.append("\n\n");
-        }
-    }
-
     private InputStream partsInfo(Part part) throws IOException, MessagingException {
         StringBuilder builder = new StringBuilder();
         partsInfo("", part, builder);

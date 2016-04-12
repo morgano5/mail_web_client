@@ -4,10 +4,7 @@ import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IMAPMessage;
 
 import javax.mail.*;
-import javax.mail.internet.MimeMultipart;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 public class Mailbox {
 
