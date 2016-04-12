@@ -2,6 +2,7 @@ import javax.mail.Folder;
 import javax.mail.Session;
 import javax.mail.Store;
 import javax.mail.URLName;
+import java.util.Base64;
 import java.util.Properties;
 
 import com.sun.mail.imap.*;
@@ -9,7 +10,7 @@ import org.apache.commons.codec.digest.Crypt;
 
 public class Test {
 
-	public static void main(String[] args) throws Exception {
+	public static void main2(String[] args) throws Exception {
 
 		String username = "";
 		String password = "";
@@ -21,6 +22,11 @@ public class Test {
 		String hash = Class.forName("org.apache.commons.codec.digest.Crypt").getMethod("crypt", String.class, String.class).invoke(null, password, salt).toString();
 		System.out.println(">>> " + /*Crypt.crypt(password, salt)*/hash);
 
+	}
+
+	public static void main(String[] args) {
+		byte[] raw = new byte[] {0, 0, 63};
+		System.out.println(">> " + Base64.getUrlEncoder().encodeToString(raw));
 	}
 
 }

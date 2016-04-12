@@ -75,12 +75,11 @@ public class MailFolderController {
     }
 
     @Permissions(Role.MAIL_USER)
-    @RequestMapping(value = "/mail/messages/{mailId}", method = RequestMethod.GET)
-    public void getContent(@PathVariable("mailId") String mailId, UserPasswordHolder userPassword,
+    @RequestMapping(value = "/mail/messages/{mailReference}", method = RequestMethod.GET)
+    public void getContent(@PathVariable("mailReference") String mailReference, UserPasswordHolder userPassword,
             ModelAndView modelAndView, HttpServletRequest request, HttpServletResponse response) {
-
         modelAndView.clear();
         Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
-        new MailContentProcessor(mailbox).transferMainContent(mailId, response);
+        new MailContentProcessor(mailbox).transferMainContent(mailReference, response);
     }
 }

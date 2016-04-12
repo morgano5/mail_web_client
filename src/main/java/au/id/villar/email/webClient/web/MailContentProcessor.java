@@ -39,26 +39,32 @@ class MailContentProcessor {
 
     private InputStream getMainContentAndSetHeaders(IMAPMessage message, HttpServletResponse response)
             throws MessagingException, IOException {
-        return partsInfo(message);
-//        Object content = message.getContent();
-//        if(content instanceof MimeMultipart) {
-//            MimeMultipart multipart = (MimeMultipart)content;
+
+        String contentType = message.getContentType();
+        contentType = contentType != null? contentType.toLowerCase(): "";
+        int pos = contentType.indexOf(';');
+        contentType = contentType.substring(0, pos != -1? pos: contentType.length());
+
+        if(contentType.startsWith("multipart/")) {
+            Object content = message.getContent();
+            Multipart multipart = (Multipart)content;
+
 //
-//            return partsInfo(multipart);
-////            String contentType = multipart.getContentType();
-////            int pos = contentType.indexOf(';');
-////            contentType = contentType.substring(0, pos != -1? pos: contentType.length());
-////
-////            switch(contentType) {
-////                case "multipart/alternative":
-////                    return sendMultipartAlternative(multipart, response);
-////                default:
-////                    return message.getInputStream();
-////            }
-//        } else {
-//            return message.getInputStream();
-//        }
-////          return message.getInputStream();
+//            switch(contentType) {
+//                case "multipart/alternative":
+//                    return sendMultipartAlternative(multipart, response);
+//                default:
+//                    return message.getInputStream();
+//            }
+        } else {
+            return message.getInputStream();
+        }
+    }
+
+    private String getContentType(IMAPMessage message) {
+        String[] rawValue = message.getHeader("Content-type");
+        if(rawValue == null || rawValue.length == 0) return "application/octet-stream";
+
     }
 
     private InputStream sendMultipartAlternative(MimeMultipart multipart, HttpServletResponse response)

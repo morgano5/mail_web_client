@@ -6,13 +6,15 @@ import java.util.Date;
 
 public class MailMessage {
 
+    public static final char SEPARATOR = ',';
+
     private final String id;
     private String[] from;
     private String subject;
     private Date sentDate;
 
     public MailMessage(String fullFolderName, long uid) {
-        id = escape(fullFolderName) + '_' + uid;
+        id = escape(fullFolderName) + SEPARATOR + uid;
     }
 
     public String getId() {
@@ -44,11 +46,11 @@ public class MailMessage {
     }
 
     public static String extractFolder(String id) {
-        return unescape(id.substring(0, id.indexOf('_')));
+        return unescape(id.substring(0, id.indexOf(SEPARATOR)));
     }
 
     public static long extractUID(String id) {
-        return Long.valueOf(id.substring(id.indexOf('_') + 1));
+        return Long.valueOf(id.substring(id.indexOf(SEPARATOR) + 1));
     }
 
     private static String escape(String str) {
