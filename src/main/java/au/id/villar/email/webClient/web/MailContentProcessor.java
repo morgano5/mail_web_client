@@ -109,6 +109,8 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
             switch(contentType.type) {
                 case "multipart/alternative":
                     return sendMultipartAlternative(multipart, response);
+                case "multipart/related":
+                    return sendMultipartRelated(multipart, response);
                 default:
                     return message.getInputStream();
             }
@@ -126,19 +128,28 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         for(int i = 0; i < count; i++) {
             BodyPart part = multipart.getBodyPart(i);
             ContentType contentType = getContentType(part);
-            // TODO not allways text.html is going to be at the root level, need to also check for multipart/related
-            if(contentType.type.equals("text/html")) {
-                response.addHeader("Content-type", "text/html" + (contentType.charset != null? "; charset=\"" + contentType.charset + '"': ""));
-                return multipart.getBodyPart(i).getInputStream();
-            } else if(contentType.type.equals("text/plain")) {
-                textPlain = i;
-                textCharset = contentType.charset;
+            switch (contentType.type) {
+                case "text/html":
+                    response.addHeader("Content-type", "text/html" + (contentType.charset != null ? "; charset=\"" + contentType.charset + '"' : ""));
+                    return multipart.getBodyPart(i).getInputStream();
+                case "multipart/related":
+                    return sendMultipartRelated(multipart, response);
+                case "text/plain":
+                    textPlain = i;
+                    textCharset = contentType.charset;
+                    break;
             }
         }
         response.addHeader("Content-type", "text/plain" + (textCharset != null? "; charset=\"" + textCharset + '"': ""));
         return multipart.getBodyPart(textPlain).getInputStream();
     }
 
+    private InputStream sendMultipartRelated(Multipart multipart, HttpServletResponse response)
+            throws MessagingException, IOException {
+        BodyPart part = multipart.getBodyPart(0);
+        ContentType contentType = getContentType(part);
+
+    }
 
 
 
@@ -202,9 +213,13 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         final String type;
         final String charset;
 
-        public ContentType(String type, String charset) {
-            this.type = type;
-            this.charset = charset;
+        ContentType(String type, String charset) {
+            this.type = type != null? type.toLowerCase(): "text/plain";
+            this.charset = charset != null? charset: (this.type.startsWith("text/")? "us-ascii": null);
+        }
+
+        String toHeaderValue() {
+            return type  "text/html" + (contentType.charset != null ? "; charset=\"" + contentType.charset + '"' : "")
         }
     }
 
