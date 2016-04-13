@@ -1,7 +1,6 @@
 package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.mail.Mailbox;
-import com.sun.mail.imap.IMAPMessage;
 import org.apache.log4j.Logger;
 
 import javax.mail.*;
@@ -10,7 +9,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.regex.Pattern;
 
 class MailContentProcessor {
@@ -85,82 +86,123 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         this.mailbox = mailbox;
     }
 
-    void transferMainContent(String mailMessageId, HttpServletResponse response) {
+    void transferMainContent(String mailReference, HttpServletResponse response) {
+
+        List<Object> tokens = getTokens(mailReference);
+        if(tokens == null) {
+            setNotFound(response);
+            return;
+        }
+        String mailMessageId = (String)tokens.get(0);
+
         processMessage(mailMessageId, response, message -> {
-            InputStream input = getMainContentAndSetHeaders(message, response);
-            OutputStream output = response.getOutputStream();
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                output.write(buffer, 0, read);
+
+            Part part = message;
+            for(int i = 1; i < tokens.size(); i++) {
+                ContentType contentType = getContentType(part);
+                if(!contentType.type.startsWith("multipart")) {
+                    setNotFound(response);
+                    return;
+                }
+                int partNumber = (Integer)tokens.get(i);
+                Multipart multipart = (Multipart)part.getContent();
+                if(multipart.getCount() - 1 < partNumber) {
+                    setNotFound(response);
+                    return;
+                }
+                part = multipart.getBodyPart(partNumber);
             }
+
+            InputStream input = getPart(part, response);
+            OutputStream output = response.getOutputStream();
+            transfer(input, output);
         });
     }
 
-    private InputStream getMainContentAndSetHeaders(IMAPMessage message, HttpServletResponse response)
-            throws MessagingException, IOException {
-
-        ContentType contentType = getContentType(message);
-
-        if(contentType.type.startsWith("multipart/")) {
-            Object content = message.getContent();
-            Multipart multipart = (Multipart)content;
-
-            switch(contentType.type) {
-                case "multipart/alternative":
-                    return sendMultipartAlternative(multipart, response);
-                case "multipart/related":
-                    return sendMultipartRelated(multipart, response);
-                default:
-                    return message.getInputStream();
-            }
-        } else {
-            return message.getInputStream();
+    private void processMessage(String mailMessageId, HttpServletResponse response, Mailbox.MessageProcess process) {
+        try {
+            if(!mailbox.processMessage(mailMessageId, process)) response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        } catch (MessagingException | IOException e) {
+            LOG.error("Error getting content: " + e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 
+    private static InputStream getPart(Part part, HttpServletResponse response)
+            throws MessagingException, IOException {
 
-    private InputStream sendMultipartAlternative(Multipart multipart, HttpServletResponse response)
+        ContentType contentType = getContentType(part);
+
+        if(contentType.type.startsWith("multipart/")) {
+            return getMultipart(contentType, (Multipart)part.getContent(), response);
+        } else {
+            setContentType(contentType, response);
+            return part.getInputStream();
+        }
+    }
+
+    private static InputStream getMultipart(ContentType contentType, Multipart multipart, HttpServletResponse response)
+            throws IOException, MessagingException {
+        switch(contentType.type) {
+            case "multipart/alternative":
+                return getMultipartAlternative(multipart, response);
+            case "multipart/related":
+                return getMultipartRelated(multipart, response);
+            default:
+                return getMultipartMixed(multipart, response);
+        }
+
+    }
+
+    private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response)
             throws MessagingException, IOException {
         int textPlain = 0;
-        String textCharset = null;
+        ContentType textPlainContextType = null;
         int count = multipart.getCount();
         for(int i = 0; i < count; i++) {
             BodyPart part = multipart.getBodyPart(i);
             ContentType contentType = getContentType(part);
             switch (contentType.type) {
                 case "text/html":
-                    response.addHeader("Content-type", "text/html" + (contentType.charset != null ? "; charset=\"" + contentType.charset + '"' : ""));
+                    setContentType(contentType, response);
                     return multipart.getBodyPart(i).getInputStream();
-                case "multipart/related":
-                    return sendMultipartRelated(multipart, response);
                 case "text/plain":
                     textPlain = i;
-                    textCharset = contentType.charset;
+                    textPlainContextType = contentType;
                     break;
+                default:
+                    if(contentType.type.startsWith("multipart/")) {
+                        return getMultipart(contentType, (Multipart)part.getContent(), response);
+                    }
             }
         }
-        response.addHeader("Content-type", "text/plain" + (textCharset != null? "; charset=\"" + textCharset + '"': ""));
+        setContentType(textPlainContextType, response);
         return multipart.getBodyPart(textPlain).getInputStream();
     }
 
-    private InputStream sendMultipartRelated(Multipart multipart, HttpServletResponse response)
+    private static InputStream getMultipartRelated(Multipart multipart, HttpServletResponse response)
             throws MessagingException, IOException {
-        BodyPart part = multipart.getBodyPart(0);
-        ContentType contentType = getContentType(part);
+        return getPart(multipart.getBodyPart(0), response);
+    }
 
+    private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response)
+            throws MessagingException, IOException {
+        return getPart(multipart.getBodyPart(0), response);
     }
 
 
 
 
-    private InputStream partsInfo(Part part) throws IOException, MessagingException {
+
+
+
+    private static InputStream partsInfo(Part part) throws IOException, MessagingException {
         StringBuilder builder = new StringBuilder();
         partsInfo("", part, builder);
         return new ByteArrayInputStream(builder.toString().getBytes());
     }
 
-    private void partsInfo(String identation, Part part, StringBuilder builder) throws MessagingException, IOException {
+    private static void partsInfo(String identation, Part part, StringBuilder builder) throws MessagingException, IOException {
         boolean isMultipart = false;
         Enumeration enumeration = part.getAllHeaders();
         while(enumeration.hasMoreElements()) {
@@ -185,13 +227,16 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
 
 
-    private ContentType getContentType(Part part) throws MessagingException {
+
+
+
+    private static ContentType getContentType(Part part) throws MessagingException {
         String[] rawValues = part.getHeader("Content-type");
         if(rawValues == null || rawValues.length == 0) return new ContentType("text/plain", "us-ascii");
         String rawValue = rawValues[0];
         int semiColonPos = rawValue.indexOf(';');
         String type = rawValue.substring(0, semiColonPos != -1? semiColonPos: rawValue.length()).trim().toLowerCase();
-        if(semiColonPos == -1) return new ContentType(type, type.startsWith("text/")? "us-ascii": null);
+        if(semiColonPos == -1) return new ContentType(type, null);
         String strParameters = rawValue.substring(semiColonPos + 1);
 
 
@@ -204,12 +249,52 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
             parameter = parameter.startsWith("\"")? parameter.substring(1,parameter.length() - 1): parameter;
             return new ContentType(type, parameter);
         }
-        return new ContentType(type, type.startsWith("text/")? "us-ascii": null);
+        return new ContentType(type, null);
         // ----------------------
 
     }
 
-    private class ContentType {
+    private static void setNotFound(HttpServletResponse response) {
+        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+    }
+
+    private static void setContentType(ContentType contentType, HttpServletResponse response) {
+        response.addHeader("Content-type", contentType.toHeaderValue());
+    }
+
+    private static void transfer(InputStream input, OutputStream output) throws IOException {
+        byte[] buffer = new byte[1024];
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+        }
+    }
+
+    private static List<Object> getTokens(String mailReference) {
+        int charPos = mailReference.indexOf(',');
+        if(charPos == -1) return null;
+        charPos = mailReference.indexOf(',', charPos + 1);
+        List<Object> results = new ArrayList<>();
+        if(charPos == -1) {
+            results.add(mailReference);
+            return results;
+        }
+        results.add(mailReference.substring(0, charPos));
+        int index = 0;
+        while(++charPos < mailReference.length()) {
+            char ch = mailReference.charAt(charPos);
+            if(ch >= '0' && ch <= '9') {
+                index = index * 10 + ch - '0';
+            } else {
+                results.add(index);
+                index = 0;
+            }
+        }
+        results.add(index);
+        return results;
+    }
+
+    private static class ContentType {
         final String type;
         final String charset;
 
@@ -219,16 +304,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         }
 
         String toHeaderValue() {
-            return type  "text/html" + (contentType.charset != null ? "; charset=\"" + contentType.charset + '"' : "")
-        }
-    }
-
-    private void processMessage(String mailMessageId, HttpServletResponse response, Mailbox.MessageProcess process) {
-        try {
-            if(!mailbox.processMessage(mailMessageId, process)) response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        } catch (MessagingException | IOException e) {
-            LOG.error("Error getting content: " + e.getMessage(), e);
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return type + (charset != null ? "; charset=\"" + charset + '"' : "");
         }
     }
 
