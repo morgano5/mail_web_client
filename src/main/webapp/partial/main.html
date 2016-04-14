@@ -1,8 +1,5 @@
 <div>
     main
-    <br /><button data-ng-click="logout()">Logout</button><br />
-
-
 
     Folder: {{ folder.name }} ( {{ folder.fullName }} )<br />
 
@@ -10,10 +7,6 @@
     New Messages: {{ folder.newMessages }}<br />
     Unread Messages:  {{ folder.unreadMessages }}<br />
     Total Messages: {{ folder.totalMessages }}<br />
-
-
-    Root:
-    <div id="mail-folder-tree"></div>
 
     Page Messages:<br />
     <div class="mail-row" data-ng-repeat="message in folder.pageMessages">

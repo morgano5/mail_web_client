@@ -48,7 +48,11 @@
     </div>
 
     <!-- Content -->
-    <div class="mail-main">
+    <div class="mail-main" data-ng-controller="CoreController">
+
+        <button data-ng-click="logout()">Logout</button><br />
+        Root:<br />
+        <div id="mail-folder-tree"></div>
         <ng-view></ng-view>
     </div>
 

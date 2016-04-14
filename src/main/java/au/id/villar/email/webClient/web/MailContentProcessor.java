@@ -143,6 +143,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
     private static InputStream getSinglePart(ContentType contentType, Part part, HttpServletResponse response, List<Integer> path)
             throws IOException, MessagingException {
+        // TODO content-disposition, file name, etc ... HTML and CSS escaping
         setContentType(contentType, response);
         return part.getInputStream();
     }
