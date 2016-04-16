@@ -199,35 +199,6 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
 
 
-    private static InputStream partsInfo(Part part) throws IOException, MessagingException {
-        StringBuilder builder = new StringBuilder();
-        partsInfo("", part, builder);
-        return new ByteArrayInputStream(builder.toString().getBytes());
-    }
-
-    private static void partsInfo(String identation, Part part, StringBuilder builder) throws MessagingException, IOException {
-        boolean isMultipart = false;
-        Enumeration enumeration = part.getAllHeaders();
-        while(enumeration.hasMoreElements()) {
-            Header header = (Header)enumeration.nextElement();
-            if(header.getName().equalsIgnoreCase("Content-type") && header.getValue().contains("multipart")) isMultipart = true;
-            builder.append(identation).append(" >> ").append(header.getName()).append(':').append(header.getValue()).append('\n');
-        }
-        if(isMultipart) {
-            Multipart multipart = (Multipart)part.getContent();
-            int count = multipart.getCount();
-            identation = "    " + identation;
-            for(int x = 0; x < count; x++) {
-                BodyPart bodyPart = multipart.getBodyPart(x);
-                builder.append(identation).append(" PART #").append(x).append('\n');
-                partsInfo(identation, bodyPart, builder);
-                builder.append("\n\n");
-            }
-        }
-
-    }
-
-
 
 
 
