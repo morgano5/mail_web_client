@@ -1,16 +1,16 @@
 package au.id.villar.email.webClient.web;
 
+import au.id.villar.email.webClient.mail.HtmlEscaperReader;
 import au.id.villar.email.webClient.mail.Mailbox;
 import org.apache.log4j.Logger;
 
 import javax.mail.*;
 import javax.servlet.http.HttpServletResponse;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -100,7 +100,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
             Part part = message;
             for(int i = 1; i < tokens.size(); i++) {
-                ContentType contentType = getContentType(part);
+                ContentType contentType = new ContentType(part);
                 if(!contentType.type.startsWith("multipart")) {
                     setNotFound(response);
                     return;
@@ -132,7 +132,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
     private static InputStream getPart(Part part, HttpServletResponse response, List<Integer> path)
             throws MessagingException, IOException {
 
-        ContentType contentType = getContentType(part);
+        ContentType contentType = new ContentType(part);
 
         if(contentType.type.startsWith("multipart/")) {
             return getMultipart(contentType, (Multipart)part.getContent(), response, path);
@@ -145,7 +145,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
             throws IOException, MessagingException {
         // TODO content-disposition, file name, etc ... HTML and CSS escaping
         setContentType(contentType, response);
-        return part.getInputStream();
+        return contentType.type.equals("text/html") && path != null? new HtmlEscaperReader(Charset.forName(contentType.charset), part.getInputStream(), null): part.getInputStream();
     }
 
     private static InputStream getMultipart(ContentType contentType, Multipart multipart, HttpServletResponse response, List<Integer> path)
@@ -166,7 +166,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         int count = multipart.getCount();
         for(int i = 0; i < count; i++) {
             BodyPart part = multipart.getBodyPart(i);
-            ContentType contentType = getContentType(part);
+            ContentType contentType = new ContentType(part);
             switch (contentType.type) {
                 case "text/html":
                     if(path != null) path.add(i);
@@ -203,30 +203,6 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
 
 
-
-    private static ContentType getContentType(Part part) throws MessagingException {
-        String[] rawValues = part.getHeader("Content-type");
-        if(rawValues == null || rawValues.length == 0) return new ContentType("text/plain", "us-ascii");
-        String rawValue = rawValues[0];
-        int semiColonPos = rawValue.indexOf(';');
-        String type = rawValue.substring(0, semiColonPos != -1? semiColonPos: rawValue.length()).trim().toLowerCase();
-        if(semiColonPos == -1) return new ContentType(type, null);
-        String strParameters = rawValue.substring(semiColonPos + 1);
-
-
-        // TODO rewrite this part
-        String[] parameters = strParameters.split("[ \\t]*;[ \\t]*");
-        for(String parameter: parameters) {
-            parameter = parameter.trim();
-            if(!parameter.startsWith("charset")) continue;
-            parameter = parameter.substring(parameter.indexOf('=') + 1);
-            parameter = parameter.startsWith("\"")? parameter.substring(1,parameter.length() - 1): parameter;
-            return new ContentType(type, parameter);
-        }
-        return new ContentType(type, null);
-        // ----------------------
-
-    }
 
     private static void setNotFound(HttpServletResponse response) {
         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -266,20 +242,6 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         }
         results.add(index);
         return results;
-    }
-
-    private static class ContentType {
-        final String type;
-        final String charset;
-
-        ContentType(String type, String charset) {
-            this.type = type != null? type.toLowerCase(): "text/plain";
-            this.charset = charset != null? charset: (this.type.startsWith("text/")? "us-ascii": null);
-        }
-
-        String toHeaderValue() {
-            return type + (charset != null ? "; charset=\"" + charset + '"' : "");
-        }
     }
 
 }
