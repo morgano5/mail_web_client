@@ -1,6 +1,8 @@
 package au.id.villar.email.webClient.web;
 
+import au.id.villar.email.webClient.mail.ContentType;
 import au.id.villar.email.webClient.mail.HtmlEscaperReader;
+import au.id.villar.email.webClient.mail.MailProcessor;
 import au.id.villar.email.webClient.mail.Mailbox;
 import org.apache.log4j.Logger;
 
@@ -8,7 +10,9 @@ import javax.mail.*;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,6 +147,21 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
     private static InputStream getSinglePart(ContentType contentType, Part part, HttpServletResponse response, List<Integer> path)
             throws IOException, MessagingException {
+
+
+        Part parent = part instanceof BodyPart? ((BodyPart)part).getParent().getParent(): null;
+        if(parent != null) {
+            System.out.println("\n\n\n---------------------\n" + MailProcessor.partsInfo(parent) + "\n---------------------\n\n\n");
+            System.out.println("\n\n\n---------------------\n");
+            try(Reader reader = new InputStreamReader(parent.getInputStream(), "us-ascii")) {
+                int ch;
+                while((ch = reader.read()) != -1) System.out.print((char)ch);
+            }
+            System.out.println("\n---------------------\n\n\n");
+        }
+
+
+
         // TODO content-disposition, file name, etc ... HTML and CSS escaping
         setContentType(contentType, response);
         return contentType.type.equals("text/html") && path != null? new HtmlEscaperReader(Charset.forName(contentType.charset), part.getInputStream(), null): part.getInputStream();

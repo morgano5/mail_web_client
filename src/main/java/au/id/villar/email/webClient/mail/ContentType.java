@@ -1,13 +1,14 @@
-package au.id.villar.email.webClient.web;
+package au.id.villar.email.webClient.mail;
 
 import javax.mail.MessagingException;
 import javax.mail.Part;
 
 public class ContentType {
-    final String type;
-    final String charset;
 
-    ContentType(Part part) throws MessagingException {
+    public final String type;
+    public final String charset;
+
+    public ContentType(Part part) throws MessagingException {
 
         String[] rawValues = part.getHeader("Content-type");
         if(rawValues == null || rawValues.length == 0) {
@@ -41,7 +42,7 @@ public class ContentType {
         this.charset = charset != null ? charset : (this.type.startsWith("text/") ? "us-ascii" : null);
     }
 
-    String toHeaderValue() {
+    public String toHeaderValue() {
         return type + (charset != null ? "; charset=\"" + charset + '"' : "");
     }
 

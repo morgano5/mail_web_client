@@ -92,9 +92,9 @@ public class HtmlEscaperReader extends InputStream {
         }
     }
 
-    private static boolean isAllowedTag(String tagName) {
-
-    }
+//    private static boolean isAllowedTag(String tagName) {
+//
+//    }
 
     private final ByteArrayInputStream message;
 

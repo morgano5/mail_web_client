@@ -12,20 +12,17 @@ public class MailProcessor {
 
     public static class PartInfo {
         private String contentId;
-        private String mimeType;
-        private String charset;
+        private ContentType mimeType;
         private boolean attachemment;
         private String filename;
         private List<PartInfo> parts;
     }
 
 
-
-
-    private static InputStream partsInfo(Part part) throws IOException, MessagingException {
+    public static String partsInfo(Part part) throws IOException, MessagingException {
         StringBuilder builder = new StringBuilder();
         partsInfo("", part, builder);
-        return new ByteArrayInputStream(builder.toString().getBytes());
+        return builder.toString();
     }
 
     private static void partsInfo(String identation, Part part, StringBuilder builder) throws MessagingException, IOException {
