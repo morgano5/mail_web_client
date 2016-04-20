@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.portlet.ModelAndView;
 
 import javax.mail.MessagingException;
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
@@ -77,7 +76,7 @@ public class MailFolderController {
     @Permissions(Role.MAIL_USER)
     @RequestMapping(value = "/mail/messages/{mailReference}", method = RequestMethod.GET)
     public void getContent(@PathVariable("mailReference") String mailReference, UserPasswordHolder userPassword,
-            ModelAndView modelAndView, HttpServletRequest request, HttpServletResponse response) {
+            ModelAndView modelAndView, HttpServletResponse response) {
         modelAndView.clear();
         Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
         new MailContentProcessor(mailbox).transferMainContent(mailReference, response);

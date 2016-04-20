@@ -1,9 +1,12 @@
 package au.id.villar.email.webClient.mail;
 
+import javax.mail.BodyPart;
+import javax.mail.Part;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -59,7 +62,7 @@ public class HtmlEscaperReader extends InputStream {
 
     public HtmlEscaperReader(Charset charset, InputStream rawStream, Map<String, String> hrefMappings) {
         StringBuilder builder = loadMessage(charset, rawStream);
-        filterContent(builder);
+        filterContent(builder, hrefMappings);
         message = new ByteArrayInputStream(builder.toString().getBytes(charset));
     }
 
@@ -86,7 +89,43 @@ public class HtmlEscaperReader extends InputStream {
         }
     }
 
-    private void filterContent(StringBuilder builder) {
+    private void filterContent(StringBuilder builder, Map<String, String> hrefMappings) {
+
+
+
+
+
+
+
+
+
+
+
+        // TODO HTML and CSS escaping
+
+        for(Map.Entry<String, String> entry: hrefMappings.entrySet())
+            System.out.println(">>>>>> URL MAPPING: " + entry.getKey() + "   --->   " + entry.getValue());
+//        Part parent = part instanceof BodyPart ? ((BodyPart)part).getParent().getParent(): null;
+//        if(parent != null) {
+//            int length = path.lastIndexOf(',');
+//            if(length == -1) length = path.length();
+//            System.out.println("\n\n\n---------------------\n" + Utils.formattedInfo(parent, path.substring(0, length)) + "\n---------------------\n\n\n");
+//            System.out.println("\n\n\n---------------------\n");
+//            try(Reader reader = new InputStreamReader(parent.getInputStream(), "us-ascii")) {
+//                int ch;
+//                while((ch = reader.read()) != -1) System.out.print((char)ch);
+//            }
+//            System.out.println("\n---------------------\n\n\n");
+//        }
+
+
+
+
+
+
+
+
+
 
         // TODO mapping HREFs here
         Matcher tagMatcher = TAG_PATTERN.matcher(builder);
