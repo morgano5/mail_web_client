@@ -6,6 +6,8 @@ import java.util.*;
 
 public class PartInfo {
 
+    public enum Level { PART_ONLY, PART_AND_CHILDREN, DEEP }
+
     public final String path;
     public final String contentId;
     public final ContentType contentType;
@@ -14,7 +16,7 @@ public class PartInfo {
     public final Map<String, String> others;
     public final List<PartInfo> parts;
 
-    public PartInfo(Part part, String path) throws IOException, MessagingException {
+    public PartInfo(Part part, String path, Level level) throws IOException, MessagingException {
 
         this.path = path;
         String contentId = null;
@@ -36,12 +38,13 @@ public class PartInfo {
             }
 
         }
-        if(contentType.type.startsWith("multipart/")) {
+        if(contentType.type.startsWith("multipart/") && (level == Level.PART_AND_CHILDREN || level == Level.DEEP)) {
             Multipart multipart = (Multipart)part.getContent();
             int count = multipart.getCount();
             for(int x = 0; x < count; x++) {
                 BodyPart bodyPart = multipart.getBodyPart(x);
-                parts.add(new PartInfo(bodyPart, path + ',' + x));
+                parts.add(new PartInfo(bodyPart, path + ',' + x,
+                        (level == Level.PART_AND_CHILDREN? Level.PART_ONLY: Level.DEEP)));
             }
         }
 

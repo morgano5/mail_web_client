@@ -153,7 +153,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         if(parent != null) {
             int length = path.lastIndexOf(',');
             if(length == -1) length = path.length();
-            System.out.println("\n\n\n---------------------\n" + new PartInfo(parent, path.substring(0, length)).formattedInfo() + "\n---------------------\n\n\n");
+            System.out.println("\n\n\n---------------------\n" + new PartInfo(parent, path.substring(0, length), PartInfo.Level.DEEP).formattedInfo() + "\n---------------------\n\n\n");
             System.out.println("\n\n\n---------------------\n");
             try(Reader reader = new InputStreamReader(parent.getInputStream(), "us-ascii")) {
                 int ch;
