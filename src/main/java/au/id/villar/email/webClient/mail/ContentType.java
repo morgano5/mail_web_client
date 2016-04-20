@@ -2,48 +2,34 @@ package au.id.villar.email.webClient.mail;
 
 import javax.mail.MessagingException;
 import javax.mail.Part;
+import java.util.Map;
 
 public class ContentType {
+
+    public static final ContentType DEFAULT = new ContentType("text/plain; charset=\"us-ascii\"");
 
     public final String type;
     public final String charset;
 
     public ContentType(Part part) throws MessagingException {
+        this(getContentTypeRawValue(part));
+    }
 
-        String[] rawValues = part.getHeader("Content-type");
-        if(rawValues == null || rawValues.length == 0) {
-            type = "text/plain";
-            charset = "us-ascii";
-            return;
-        }
-
-        String rawValue = rawValues[0];
-        int semiColonPos = rawValue.indexOf(';');
-        String type = rawValue.substring(0, semiColonPos != -1? semiColonPos: rawValue.length()).trim().toLowerCase();
-        String charset = null;
-        if(semiColonPos != -1) {
-
-            String strParameters = rawValue.substring(semiColonPos + 1);
-
-            // TODO rewrite this part
-            String[] parameters = strParameters.split("[ \\t]*;[ \\t]*");
-            for (String parameter : parameters) {
-                parameter = parameter.trim();
-                if (!parameter.startsWith("charset")) continue;
-                parameter = parameter.substring(parameter.indexOf('=') + 1);
-                parameter = parameter.startsWith("\"") ? parameter.substring(1, parameter.length() - 1) : parameter;
-                charset = parameter;
-                break;
-            }
-            // ----------------------
-        }
-
+    public ContentType(String rawValue) {
+        String type = Utils.getMainValue(rawValue);
+        Map<String, String> parameters = Utils.getParameters(rawValue);
+        String charset = parameters.get("charset");
         this.type = type.toLowerCase();
         this.charset = charset != null ? charset : (this.type.startsWith("text/") ? "us-ascii" : null);
     }
 
     public String toHeaderValue() {
         return type + (charset != null ? "; charset=\"" + charset + '"' : "");
+    }
+
+    private static String getContentTypeRawValue(Part part) throws MessagingException {
+        String[] rawValues = part.getHeader("Content-type");
+        return rawValues == null || rawValues.length == 0? "text/plain; charset=\"us-ascii\"": rawValues[0];
     }
 
 }

@@ -2,7 +2,7 @@ package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.mail.ContentType;
 import au.id.villar.email.webClient.mail.HtmlEscaperReader;
-import au.id.villar.email.webClient.mail.MailProcessor;
+import au.id.villar.email.webClient.mail.PartInfo;
 import au.id.villar.email.webClient.mail.Mailbox;
 import org.apache.log4j.Logger;
 
@@ -118,7 +118,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
                 part = multipart.getBodyPart(partNumber);
             }
 
-            InputStream input = getPart(part, response, isRequestForMainContent? new ArrayList<>(2): null);
+            InputStream input = getPart(part, response, isRequestForMainContent? mailReference: null);
             OutputStream output = response.getOutputStream();
             transfer(input, output);
         });
@@ -133,7 +133,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         }
     }
 
-    private static InputStream getPart(Part part, HttpServletResponse response, List<Integer> path)
+    private static InputStream getPart(Part part, HttpServletResponse response, String path)
             throws MessagingException, IOException {
 
         ContentType contentType = new ContentType(part);
@@ -145,13 +145,15 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         }
     }
 
-    private static InputStream getSinglePart(ContentType contentType, Part part, HttpServletResponse response, List<Integer> path)
+    private static InputStream getSinglePart(ContentType contentType, Part part, HttpServletResponse response, String path)
             throws IOException, MessagingException {
 
 
         Part parent = part instanceof BodyPart? ((BodyPart)part).getParent().getParent(): null;
         if(parent != null) {
-            System.out.println("\n\n\n---------------------\n" + MailProcessor.partsInfo(parent) + "\n---------------------\n\n\n");
+            int length = path.lastIndexOf(',');
+            if(length == -1) length = path.length();
+            System.out.println("\n\n\n---------------------\n" + new PartInfo(parent, path.substring(0, length)).formattedInfo() + "\n---------------------\n\n\n");
             System.out.println("\n\n\n---------------------\n");
             try(Reader reader = new InputStreamReader(parent.getInputStream(), "us-ascii")) {
                 int ch;
@@ -167,7 +169,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
         return contentType.type.equals("text/html") && path != null? new HtmlEscaperReader(Charset.forName(contentType.charset), part.getInputStream(), null): part.getInputStream();
     }
 
-    private static InputStream getMultipart(ContentType contentType, Multipart multipart, HttpServletResponse response, List<Integer> path)
+    private static InputStream getMultipart(ContentType contentType, Multipart multipart, HttpServletResponse response, String path)
             throws IOException, MessagingException {
         switch(contentType.type) {
             case "multipart/alternative":
@@ -178,7 +180,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
 
     }
 
-    private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response, List<Integer> path)
+    private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response, String path)
             throws MessagingException, IOException {
         int textPlain = 0;
         ContentType textPlainContextType = null;
@@ -188,7 +190,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
             ContentType contentType = new ContentType(part);
             switch (contentType.type) {
                 case "text/html":
-                    if(path != null) path.add(i);
+                    if(path != null) path += "," + i;
                     return getSinglePart(contentType, part, response, path);
                 case "text/plain":
                     textPlain = i;
@@ -196,19 +198,19 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
                     break;
                 default:
                     if(contentType.type.startsWith("multipart/")) {
-                        if(path != null) path.add(i);
+                        if(path != null) path += "," + i;
                         return getMultipart(contentType, (Multipart)part.getContent(), response, path);
                     }
             }
         }
-        if(path != null) path.add(textPlain);
+        if(path != null) path += "," + textPlain;
         return getSinglePart(textPlainContextType, multipart.getBodyPart(textPlain), response, path);
     }
 
-    private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response, List<Integer> path)
+    private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response, String path)
             throws MessagingException, IOException {
         // TODO verify that the main part will always be #0
-        if(path != null) path.add(0);
+        if(path != null) path += ",0";
         return getPart(multipart.getBodyPart(0), response, path);
     }
 
