@@ -132,6 +132,7 @@ public class Mailbox {
                     mailMessages[i].setFrom(mailFrom);
                     mailMessages[i].setSubject(message.getSubject());
                     mailMessages[i].setSentDate(message.getSentDate());
+                    mailMessages[i].setWithAttachments(MailMessage.attachmentsPresent(message));
                 }
             }
             mailFolder.setPageMessages(mailMessages);
