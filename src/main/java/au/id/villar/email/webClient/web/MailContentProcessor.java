@@ -1,9 +1,9 @@
 package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.mail.HtmlEscaperReader;
-import au.id.villar.email.webClient.mail.PartInfo;
+import au.id.villar.email.webClient.mail.MailMessage;
+import au.id.villar.email.webClient.mail.MailPart;
 import au.id.villar.email.webClient.mail.Mailbox;
-import au.id.villar.email.webClient.mail.Utils;
 import org.apache.log4j.Logger;
 
 import javax.mail.*;
@@ -40,8 +40,8 @@ class MailContentProcessor {
 
             Part part = message;
             for(int i = 1; i < tokens.size(); i++) {
-                PartInfo partInfo = Utils.getSinglePartInfo(part, path);
-                if(!partInfo.isMultipart) {
+                MailPart mailPart = MailPart.getSinglePartInfo(part, path);
+                if(!mailPart.isMultipart) {
                     setNotFound(response);
                     return;
                 }
@@ -72,29 +72,29 @@ class MailContentProcessor {
     private static InputStream getPart(Part part, HttpServletResponse response, String path)
             throws MessagingException, IOException {
 
-        PartInfo partInfo = Utils.getSinglePartInfo(part, path);
+        MailPart mailPart = MailPart.getSinglePartInfo(part, path);
 
-        if(partInfo.isMultipart) {
-            return getMultipart(partInfo, (Multipart)part.getContent(), response, path);
+        if(mailPart.isMultipart) {
+            return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
         } else {
-            return getSinglePart(partInfo, part, response, path);
+            return getSinglePart(mailPart, part, response, path);
         }
     }
 
-    private static InputStream getSinglePart(PartInfo partInfo, Part part, HttpServletResponse response, String path)
+    private static InputStream getSinglePart(MailPart mailPart, Part part, HttpServletResponse response, String path)
             throws IOException, MessagingException {
 
-        response.addHeader("Content-Type", partInfo.contentTypeHeaderValue());
-        response.addHeader("Content-Disposition", partInfo.contentDispositionHeaderValue());
+        response.addHeader("Content-Type", mailPart.contentTypeHeaderValue());
+        response.addHeader("Content-Disposition", mailPart.contentDispositionHeaderValue());
 
-        return partInfo.contentType.equals("text/html") && !partInfo.attachment?
-                new HtmlEscaperReader(Charset.forName(partInfo.charset), part.getInputStream(), Utils.hrefMappings(part, path)):
+        return mailPart.contentType.equals("text/html") && !mailPart.attachment?
+                new HtmlEscaperReader(Charset.forName(mailPart.charset), part.getInputStream(), MailPart.hrefMappings(part, path)):
                 part.getInputStream();
     }
 
-    private static InputStream getMultipart(PartInfo partInfo, Multipart multipart, HttpServletResponse response, String path)
+    private static InputStream getMultipart(MailPart mailPart, Multipart multipart, HttpServletResponse response, String path)
             throws IOException, MessagingException {
-        switch(partInfo.contentType) {
+        switch(mailPart.contentType) {
             case "multipart/alternative":
                 return getMultipartAlternative(multipart, response, path);
             default:
@@ -106,28 +106,28 @@ class MailContentProcessor {
     private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response, String path)
             throws MessagingException, IOException {
         int textPlain = 0;
-        PartInfo textPlainPartInfo = null;
+        MailPart textPlainMailPart = null;
         int count = multipart.getCount();
         for(int i = 0; i < count; i++) {
             BodyPart part = multipart.getBodyPart(i);
-            PartInfo partInfo = Utils.getSinglePartInfo(part, path);
-            switch (partInfo.contentType) {
+            MailPart mailPart = MailPart.getSinglePartInfo(part, path);
+            switch (mailPart.contentType) {
                 case "text/html":
                     if(path != null) path += "," + i;
-                    return getSinglePart(partInfo, part, response, path);
+                    return getSinglePart(mailPart, part, response, path);
                 case "text/plain":
                     textPlain = i;
-                    textPlainPartInfo = partInfo;
+                    textPlainMailPart = mailPart;
                     break;
                 default:
-                    if(partInfo.isMultipart) {
+                    if(mailPart.isMultipart) {
                         if(path != null) path += "," + i;
-                        return getMultipart(partInfo, (Multipart)part.getContent(), response, path);
+                        return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
                     }
             }
         }
         if(path != null) path += "," + textPlain;
-        return getSinglePart(textPlainPartInfo, multipart.getBodyPart(textPlain), response, path);
+        return getSinglePart(textPlainMailPart, multipart.getBodyPart(textPlain), response, path);
     }
 
     private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response, String path)
@@ -150,9 +150,9 @@ class MailContentProcessor {
     }
 
     private static List<Object> getTokens(String mailReference) {
-        int charPos = mailReference.indexOf(',');
+        int charPos = mailReference.indexOf(MailMessage.SEPARATOR);
         if(charPos == -1) return null;
-        charPos = mailReference.indexOf(',', charPos + 1);
+        charPos = mailReference.indexOf(MailMessage.SEPARATOR, charPos + 1);
         List<Object> results = new ArrayList<>();
         if(charPos == -1) {
             results.add(mailReference);

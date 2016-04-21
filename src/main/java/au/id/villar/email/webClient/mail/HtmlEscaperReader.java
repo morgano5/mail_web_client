@@ -1,5 +1,8 @@
 package au.id.villar.email.webClient.mail;
 
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Whitelist;
+
 import javax.mail.BodyPart;
 import javax.mail.Part;
 import java.io.ByteArrayInputStream;
@@ -103,8 +106,10 @@ public class HtmlEscaperReader extends InputStream {
 
         // TODO HTML and CSS escaping
 
-        for(Map.Entry<String, String> entry: hrefMappings.entrySet())
-            System.out.println(">>>>>> URL MAPPING: " + entry.getKey() + "   --->   " + entry.getValue());
+//        for(Map.Entry<String, String> entry: hrefMappings.entrySet())
+//            System.out.println(">>>>>> URL MAPPING: " + entry.getKey() + "   --->   " + entry.getValue());
+
+
 //        Part parent = part instanceof BodyPart ? ((BodyPart)part).getParent().getParent(): null;
 //        if(parent != null) {
 //            int length = path.lastIndexOf(',');
@@ -127,15 +132,22 @@ public class HtmlEscaperReader extends InputStream {
 
 
 
-        // TODO mapping HREFs here
-        Matcher tagMatcher = TAG_PATTERN.matcher(builder);
-        int start = 0;
-        while(tagMatcher.find(start)) {
+//        // TODO mapping HREFs here
+//        Matcher tagMatcher = TAG_PATTERN.matcher(builder);
+//        int start = 0;
+//        while(tagMatcher.find(start)) {
+//
+//            System.out.println(">> TAG: " + tagMatcher.group() + "    --    CLOSING: " + (tagMatcher.group(1).length() == 1) + ", NAME: " + tagMatcher.group(2) + ", EMPTY: " + (tagMatcher.group(3).length() == 1));
+//            start = tagMatcher.end();
+//        }
+//        // ------------------------
 
-            System.out.println(">> TAG: " + tagMatcher.group() + "    --    CLOSING: " + (tagMatcher.group(1).length() == 1) + ", NAME: " + tagMatcher.group(2) + ", EMPTY: " + (tagMatcher.group(3).length() == 1));
-            start = tagMatcher.end();
-        }
-        // ------------------------
+
+        // TODO provisional code, needs to be replaced with something more robust
+        String unsafe = builder.toString();
+        String lessUnsafe = Jsoup.clean(unsafe, Whitelist.basic());
+        builder.replace(0, builder.length(), lessUnsafe);
+
 
     }
 

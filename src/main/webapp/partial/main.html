@@ -14,7 +14,8 @@
             <span data-ng-repeat="from in message.from" title="{{ toEmail(from) }}">{{ toName(from) }}</span>
         </div>
         <div class="mail-row-subject"><a data-ng-click="showMessage(message.id)">{{ message.subject }}</a></div>
-         <div class="mail-row-date">{{ formatDate(message.sentDate) }}</div>
+        <div class="mail-row-attachment">{{ message.withAttachments? '[A]': '[N]' }}</div>
+        <div class="mail-row-date">{{ formatDate(message.sentDate) }}</div>
     </div>
 
     <span data-ng-click="previousEmailPage()" data-ng-if="getPageIndex() > 0">prev</span>

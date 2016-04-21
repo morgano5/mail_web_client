@@ -5,9 +5,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Pattern;
 
-public class PartInfo {
+public class MailPart {
 
-    enum Level { PART_ONLY, PART_AND_CHILDREN, DEEP }
+    private enum Level { PART_ONLY, PART_AND_CHILDREN, DEEP }
 
     private static final String DEFAULT_CONTENT_TYPE = "text/plain; charset=\"us-ascii\"";
 
@@ -19,9 +19,9 @@ public class PartInfo {
     public final boolean attachment;
     public final String filename;
     public final Map<String, String> others;
-    public final List<PartInfo> parts;
+    public final List<MailPart> parts;
 
-    PartInfo(Part part, String path, Level level) throws IOException, MessagingException {
+    private MailPart(Part part, String path, Level level) throws IOException, MessagingException {
 
         this.path = path;
 
@@ -29,7 +29,7 @@ public class PartInfo {
         String contentType = DEFAULT_CONTENT_TYPE;
         String contentDisposition = "";
         Map<String, String> others = new HashMap<>();
-        List<PartInfo> parts = new ArrayList<>();
+        List<MailPart> parts = new ArrayList<>();
 
         Enumeration enumeration = part.getAllHeaders();
         while(enumeration.hasMoreElements()) {
@@ -46,7 +46,7 @@ public class PartInfo {
         }
 
         this.contentType = getMainValue(contentType).toLowerCase();
-        this.isMultipart = contentType.startsWith("multipart/");
+        this.isMultipart = Utils.isMultipart(contentType);
 
         String charset = getParameters(contentType).get("charset");
 
@@ -57,7 +57,7 @@ public class PartInfo {
             int count = multipart.getCount();
             for(int x = 0; x < count; x++) {
                 BodyPart bodyPart = multipart.getBodyPart(x);
-                parts.add(new PartInfo(bodyPart, path + ',' + x,
+                parts.add(new MailPart(bodyPart, path + MailMessage.SEPARATOR + x,
                         (level == Level.PART_AND_CHILDREN? Level.PART_ONLY: Level.DEEP)));
             }
         }
@@ -85,6 +85,65 @@ public class PartInfo {
     }
 
 
+    public static boolean attachmentsPresent(Part part) throws IOException, MessagingException {
+
+        if(!Utils.isMultipart(part.getContentType())) {
+            String contentDisposition = part.getDisposition();
+            return contentDisposition != null && contentDisposition.equalsIgnoreCase(Part.ATTACHMENT);
+        }
+
+        Multipart multipart = (Multipart)part.getContent();
+        int count = multipart.getCount();
+        for(int x = 0; x < count; x++) {
+            BodyPart bodyPart = multipart.getBodyPart(x);
+            if(attachmentsPresent(bodyPart)) return true;
+        }
+
+        return false;
+    }
+
+    public static MailPart getSinglePartInfo(Part part, String path) throws IOException, MessagingException {
+        return new MailPart(part, path, MailPart.Level.PART_ONLY);
+    }
+
+    public static Map<String, String> hrefMappings(Part part, String path)
+            throws IOException, MessagingException {
+
+        Part parent = part instanceof BodyPart ? ((BodyPart)part).getParent().getParent(): null;
+        if(parent == null) {
+            return Collections.emptyMap();
+        }
+
+        int length = path.lastIndexOf(MailMessage.SEPARATOR);
+        if(length == -1) length = path.length();
+        List<MailPart> relatedParts =
+                new MailPart(parent, path.substring(0, length), MailPart.Level.PART_AND_CHILDREN).parts;
+
+        Map<String, String> hrefMappings = new HashMap<>(relatedParts.size());
+        for(MailPart mailPart : relatedParts) {
+            if(mailPart.attachment || mailPart.contentId == null) continue;
+            hrefMappings.put(mailPart.contentId, mailPart.path);
+        }
+
+        return hrefMappings;
+    }
+
+    public static String formattedInfo(Part part, String path) throws IOException, MessagingException {
+        return new MailPart(part, path, MailPart.Level.DEEP).formattedInfo();
+    }
+
+    public static List<MailPart> getAttachments(Part part, String path) throws IOException, MessagingException {
+        MailPart info = new MailPart(part, path, Level.DEEP);
+        List<MailPart> attachments = new ArrayList<>();
+        Queue<MailPart> queue = new LinkedList<>();
+        queue.offer(info);
+        while(!queue.isEmpty()) {
+            MailPart current = queue.poll();
+            current.parts.forEach(queue::offer);
+            if(current.attachment) attachments.add(current);
+        }
+        return attachments;
+    }
 
 
 
@@ -227,7 +286,7 @@ obs-NO-WS-CTL   =   %d1-8 /            ; US-ASCII control
             builder.append('|').append(prefix).append("[Other] ").append(other.getKey()).append(": ")
                     .append(other.getValue()).append('\n');
 
-        for(PartInfo part: parts)
+        for(MailPart part: parts)
             builder.append(part.formattedInfo(identation + 1));
 
         builder.append('\n');
