@@ -109,6 +109,10 @@ public class MailPart {
     public static Map<String, String> hrefMappings(Part part, String path)
             throws IOException, MessagingException {
 
+        if(path == null) {
+            return Collections.emptyMap();
+        }
+
         Part parent = part instanceof BodyPart ? ((BodyPart)part).getParent().getParent(): null;
         if(parent == null) {
             return Collections.emptyMap();
@@ -128,10 +132,6 @@ public class MailPart {
         return hrefMappings;
     }
 
-    public static String formattedInfo(Part part, String path) throws IOException, MessagingException {
-        return new MailPart(part, path, MailPart.Level.DEEP).formattedInfo();
-    }
-
     public static List<MailPart> getAttachments(Part part, String path) throws IOException, MessagingException {
         MailPart info = new MailPart(part, path, Level.DEEP);
         List<MailPart> attachments = new ArrayList<>();
@@ -143,6 +143,10 @@ public class MailPart {
             if(current.attachment) attachments.add(current);
         }
         return attachments;
+    }
+
+    public static String formattedInfo(Part part, String path) throws IOException, MessagingException {
+        return new MailPart(part, path, MailPart.Level.DEEP).formattedInfo();
     }
 
 

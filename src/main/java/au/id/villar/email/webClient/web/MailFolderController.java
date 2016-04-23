@@ -81,4 +81,13 @@ public class MailFolderController {
         Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
         new MailContentProcessor(mailbox).transferMainContent(mailReference, response);
     }
+
+//    @Permissions(Role.MAIL_USER)
+//    @RequestMapping(value = "/mail/messages/{mailReference}/headers", method = RequestMethod.GET)
+//    public void getContent(@PathVariable("mailReference") String mailReference, UserPasswordHolder userPassword,
+//            ModelAndView modelAndView, HttpServletResponse response) {
+//        modelAndView.clear();
+//        Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
+//        new MailContentProcessor(mailbox).transferMainContent(mailReference, response);
+//    }
 }

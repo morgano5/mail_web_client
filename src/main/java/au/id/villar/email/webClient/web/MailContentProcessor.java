@@ -54,9 +54,17 @@ class MailContentProcessor {
                 part = multipart.getBodyPart(partNumber);
             }
 
-            InputStream input = getPart(part, response, path);
-            OutputStream output = response.getOutputStream();
-            transfer(input, output);
+            getPart(part, path, (mailPart, part1, path1) -> {
+                response.addHeader("Content-Type", mailPart.contentTypeHeaderValue());
+                response.addHeader("Content-Disposition", mailPart.contentDispositionHeaderValue());
+
+                InputStream input = mailPart.contentType.equals("text/html") && !mailPart.attachment?
+                        new HtmlEscaperReader(Charset.forName(mailPart.charset), part1.getInputStream(), MailPart.hrefMappings(part1, path1)):
+                        part1.getInputStream();
+
+                OutputStream output = response.getOutputStream();
+                transfer(input, output);
+            });
         });
     }
 
@@ -69,41 +77,94 @@ class MailContentProcessor {
         }
     }
 
-    private static InputStream getPart(Part part, HttpServletResponse response, String path)
+//    private static InputStream getPart(Part part, HttpServletResponse response, String path)
+//            throws MessagingException, IOException {
+//
+//        MailPart mailPart = MailPart.getSinglePartInfo(part, path);
+//
+//        if(mailPart.isMultipart) {
+//            return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
+//        } else {
+//            return getSinglePart(mailPart, part, response, path);
+//        }
+//    }
+    private static void getPart(Part part, String path, MailPartProcessor processor)
             throws MessagingException, IOException {
 
         MailPart mailPart = MailPart.getSinglePartInfo(part, path);
 
         if(mailPart.isMultipart) {
-            return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
+            getMultipart(mailPart, (Multipart)part.getContent(), path, processor);
         } else {
-            return getSinglePart(mailPart, part, response, path);
+            getSinglePart(mailPart, part, path, processor);
         }
     }
 
-    private static InputStream getSinglePart(MailPart mailPart, Part part, HttpServletResponse response, String path)
+//    private static InputStream getSinglePart(MailPart mailPart, Part part, HttpServletResponse response, String path)
+//            throws IOException, MessagingException {
+//
+//        response.addHeader("Content-Type", mailPart.contentTypeHeaderValue());
+//        response.addHeader("Content-Disposition", mailPart.contentDispositionHeaderValue());
+//
+//        return mailPart.contentType.equals("text/html") && !mailPart.attachment?
+//                new HtmlEscaperReader(Charset.forName(mailPart.charset), part.getInputStream(), MailPart.hrefMappings(part, path)):
+//                part.getInputStream();
+//    }
+    private static void getSinglePart(MailPart mailPart, Part part, String path, MailPartProcessor processor)
             throws IOException, MessagingException {
 
-        response.addHeader("Content-Type", mailPart.contentTypeHeaderValue());
-        response.addHeader("Content-Disposition", mailPart.contentDispositionHeaderValue());
-
-        return mailPart.contentType.equals("text/html") && !mailPart.attachment?
-                new HtmlEscaperReader(Charset.forName(mailPart.charset), part.getInputStream(), MailPart.hrefMappings(part, path)):
-                part.getInputStream();
+        processor.processPart(mailPart, part, path);
     }
 
-    private static InputStream getMultipart(MailPart mailPart, Multipart multipart, HttpServletResponse response, String path)
+//    private static InputStream getMultipart(MailPart mailPart, Multipart multipart, HttpServletResponse response, String path)
+//            throws IOException, MessagingException {
+//        switch(mailPart.contentType) {
+//            case "multipart/alternative":
+//                return getMultipartAlternative(multipart, response, path);
+//            default:
+//                return getMultipartMixed(multipart, response, path);
+//        }
+//
+//    }
+    private static void getMultipart(MailPart mailPart, Multipart multipart, String path, MailPartProcessor processor)
             throws IOException, MessagingException {
         switch(mailPart.contentType) {
             case "multipart/alternative":
-                return getMultipartAlternative(multipart, response, path);
+                getMultipartAlternative(multipart, path, processor);
+                break;
             default:
-                return getMultipartMixed(multipart, response, path);
+                getMultipartMixed(multipart, path, processor);
         }
 
     }
 
-    private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response, String path)
+//    private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response, String path)
+//            throws MessagingException, IOException {
+//        int textPlain = 0;
+//        MailPart textPlainMailPart = null;
+//        int count = multipart.getCount();
+//        for(int i = 0; i < count; i++) {
+//            BodyPart part = multipart.getBodyPart(i);
+//            MailPart mailPart = MailPart.getSinglePartInfo(part, path);
+//            switch (mailPart.contentType) {
+//                case "text/html":
+//                    if(path != null) path += "," + i;
+//                    return getSinglePart(mailPart, part, response, path);
+//                case "text/plain":
+//                    textPlain = i;
+//                    textPlainMailPart = mailPart;
+//                    break;
+//                default:
+//                    if(mailPart.isMultipart) {
+//                        if(path != null) path += "," + i;
+//                        return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
+//                    }
+//            }
+//        }
+//        if(path != null) path += "," + textPlain;
+//        return getSinglePart(textPlainMailPart, multipart.getBodyPart(textPlain), response, path);
+//    }
+    private static void getMultipartAlternative(Multipart multipart, String path, MailPartProcessor processor)
             throws MessagingException, IOException {
         int textPlain = 0;
         MailPart textPlainMailPart = null;
@@ -114,7 +175,8 @@ class MailContentProcessor {
             switch (mailPart.contentType) {
                 case "text/html":
                     if(path != null) path += "," + i;
-                    return getSinglePart(mailPart, part, response, path);
+                    getSinglePart(mailPart, part, path, processor);
+                    return;
                 case "text/plain":
                     textPlain = i;
                     textPlainMailPart = mailPart;
@@ -122,19 +184,26 @@ class MailContentProcessor {
                 default:
                     if(mailPart.isMultipart) {
                         if(path != null) path += "," + i;
-                        return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
+                        getMultipart(mailPart, (Multipart)part.getContent(), path, processor);
+                        return;
                     }
             }
         }
         if(path != null) path += "," + textPlain;
-        return getSinglePart(textPlainMailPart, multipart.getBodyPart(textPlain), response, path);
+        getSinglePart(textPlainMailPart, multipart.getBodyPart(textPlain), path, processor);
     }
 
-    private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response, String path)
+//    private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response, String path)
+//            throws MessagingException, IOException {
+//        // TODO verify that the main part will always be #0
+//        if(path != null) path += ",0";
+//        return getPart(multipart.getBodyPart(0), response, path);
+//    }
+    private static void getMultipartMixed(Multipart multipart, String path, MailPartProcessor processor)
             throws MessagingException, IOException {
         // TODO verify that the main part will always be #0
         if(path != null) path += ",0";
-        return getPart(multipart.getBodyPart(0), response, path);
+        getPart(multipart.getBodyPart(0), path, processor);
     }
 
     private static void setNotFound(HttpServletResponse response) {
@@ -173,4 +242,9 @@ class MailContentProcessor {
         return results;
     }
 
+    @FunctionalInterface
+    private interface MailPartProcessor {
+
+        void processPart(MailPart mailPart, Part part, String path) throws IOException, MessagingException;
+    }
 }
