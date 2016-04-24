@@ -5,12 +5,14 @@ import javax.mail.MessagingException;
 import javax.mail.Multipart;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 
 public class MailMessage {
 
-    public static final char SEPARATOR = ',';
+    static final char SEPARATOR = ',';
 
     private final String id;
     private String[] from;
@@ -74,6 +76,30 @@ public class MailMessage {
             if(MailPart.attachmentsPresent(multipart.getBodyPart(x))) return true;
         }
         return false;
+    }
+
+    public static List<Object> getTokens(String mailReference) {
+        int charPos = mailReference.indexOf(MailMessage.SEPARATOR);
+        if(charPos == -1) return null;
+        charPos = mailReference.indexOf(MailMessage.SEPARATOR, charPos + 1);
+        List<Object> results = new ArrayList<>();
+        if(charPos == -1) {
+            results.add(mailReference);
+            return results;
+        }
+        results.add(mailReference.substring(0, charPos));
+        int index = 0;
+        while(++charPos < mailReference.length()) {
+            char ch = mailReference.charAt(charPos);
+            if(ch >= '0' && ch <= '9') {
+                index = index * 10 + ch - '0';
+            } else {
+                results.add(index);
+                index = 0;
+            }
+        }
+        results.add(index);
+        return results;
     }
 
     private static String escape(String str) {

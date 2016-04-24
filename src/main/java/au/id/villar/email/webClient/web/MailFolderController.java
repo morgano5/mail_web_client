@@ -1,5 +1,6 @@
 package au.id.villar.email.webClient.web;
 
+import au.id.villar.email.webClient.mail.MailPart;
 import au.id.villar.email.webClient.mail.Mailbox;
 import au.id.villar.email.webClient.users.Role;
 import au.id.villar.email.webClient.mail.MailFolder;
@@ -15,6 +16,7 @@ import org.springframework.web.portlet.ModelAndView;
 import javax.mail.MessagingException;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 
 @Controller("/mail")
 public class MailFolderController {
@@ -82,12 +84,17 @@ public class MailFolderController {
         new MailContentProcessor(mailbox).transferMainContent(mailReference, response);
     }
 
-//    @Permissions(Role.MAIL_USER)
-//    @RequestMapping(value = "/mail/messages/{mailReference}/headers", method = RequestMethod.GET)
-//    public void getContent(@PathVariable("mailReference") String mailReference, UserPasswordHolder userPassword,
-//            ModelAndView modelAndView, HttpServletResponse response) {
-//        modelAndView.clear();
-//        Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
-//        new MailContentProcessor(mailbox).transferMainContent(mailReference, response);
-//    }
+    @Permissions(Role.MAIL_USER)
+    @RequestMapping(value = "/mail/attachments/{mailReference}", method = RequestMethod.GET,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody List<MailPart> getAttachments(@PathVariable("mailReference") String mailReference,
+            UserPasswordHolder userPassword) {
+        try {
+            Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
+            return new MailContentProcessor(mailbox).getAttachments(mailReference);
+        } catch (MessagingException | IOException e) {
+            LOG.error("Error getting attachments: " + e.getMessage(), e);
+            throw new InternalServerErrorException();
+        }
+    }
 }

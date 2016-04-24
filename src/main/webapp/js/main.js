@@ -270,6 +270,13 @@ angular.module('mail', ['ngRoute'])
             );
         };
 
+        service.getAttachments = function(emailReference, callback) {
+            $http({url: "api/mail/attachments/" + emailReference, method: "GET"}).then(
+                callback,
+                onError(function() {service.getAttachments(emailReference, callback)})
+            );
+        };
+
         function onError(retryFunction) {
             return function(error) {
                 if (error.status == 401) {
@@ -409,7 +416,11 @@ angular.module('mail', ['ngRoute'])
         }
     })
 
-    .controller('MessageController', function($scope, $location) {
+    .controller('MessageController', function($scope, mailService) {
+
+        mailService.getAttachments($scope.messageId, function(result) {
+            $scope.attachments = result.data;
+        });
 
         $scope.messageUrl = function() { return 'api/mail/messages/' + $scope.messageId; }
 

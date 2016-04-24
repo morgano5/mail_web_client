@@ -26,145 +26,104 @@ class MailContentProcessor {
     }
 
     void transferMainContent(String mailReference, HttpServletResponse response) {
+        try {
 
-        List<Object> tokens = getTokens(mailReference);
-        if(tokens == null) {
-            setNotFound(response);
-            return;
-        }
-        String mailMessageId = (String)tokens.get(0);
-        boolean isRequestForMainContent = tokens.size() == 1;
-        String path = isRequestForMainContent? mailReference: null;
+            processMailReference(mailReference, (mailPart, part, path) -> {
 
-        processMessage(mailMessageId, response, message -> {
-
-            Part part = message;
-            for(int i = 1; i < tokens.size(); i++) {
-                MailPart mailPart = MailPart.getSinglePartInfo(part, path);
-                if(!mailPart.isMultipart) {
-                    setNotFound(response);
+                if(mailPart == null) {
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                     return;
                 }
-                int partNumber = (Integer)tokens.get(i);
-                Multipart multipart = (Multipart)part.getContent();
-                if(multipart.getCount() - 1 < partNumber) {
-                    setNotFound(response);
-                    return;
-                }
-                part = multipart.getBodyPart(partNumber);
-            }
 
-            getPart(part, path, (mailPart, part1, path1) -> {
                 response.addHeader("Content-Type", mailPart.contentTypeHeaderValue());
                 response.addHeader("Content-Disposition", mailPart.contentDispositionHeaderValue());
 
                 InputStream input = mailPart.contentType.equals("text/html") && !mailPart.attachment?
-                        new HtmlEscaperReader(Charset.forName(mailPart.charset), part1.getInputStream(), MailPart.hrefMappings(part1, path1)):
-                        part1.getInputStream();
+                        new HtmlEscaperReader(Charset.forName(mailPart.charset), part.getInputStream(), MailPart.hrefMappings(part, path)):
+                        part.getInputStream();
 
                 OutputStream output = response.getOutputStream();
                 transfer(input, output);
-            });
-        });
-    }
 
-    private void processMessage(String mailMessageId, HttpServletResponse response, Mailbox.MessageProcess process) {
-        try {
-            if(!mailbox.processMessage(mailMessageId, process)) response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            });
+
         } catch (MessagingException | IOException e) {
             LOG.error("Error getting content: " + e.getMessage(), e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 
-//    private static InputStream getPart(Part part, HttpServletResponse response, String path)
-//            throws MessagingException, IOException {
-//
-//        MailPart mailPart = MailPart.getSinglePartInfo(part, path);
-//
-//        if(mailPart.isMultipart) {
-//            return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
-//        } else {
-//            return getSinglePart(mailPart, part, response, path);
-//        }
-//    }
-    private static void getPart(Part part, String path, MailPartProcessor processor)
+    List<MailPart> getAttachments(String mailReference) throws MessagingException, IOException {
+        List<MailPart> attachments = new ArrayList<>();
+
+        List<Object> tokens = MailMessage.getTokens(mailReference);
+        String messageId = tokens.get(0).toString();
+
+        mailbox.processMessage(messageId, message -> attachments.addAll(MailPart.getAttachments(message, messageId)));
+        return attachments;
+    }
+
+    private void processMailReference(String mailReference, MailPartProcessor processor)
+            throws MessagingException, IOException {
+
+        List<Object> tokens = MailMessage.getTokens(mailReference);
+        if(tokens == null) {
+            processor.processPart(null, null, null);
+            return;
+        }
+        String mailMessageId = (String)tokens.get(0);
+        boolean isRequestForMainContent = tokens.size() == 1;
+        String path = isRequestForMainContent? mailReference: null;
+
+        boolean found = mailbox.processMessage(mailMessageId, message -> {
+
+            Part part = message;
+            for(int i = 1; i < tokens.size(); i++) {
+                MailPart mailPart = MailPart.getSinglePartInfo(part, path);
+                if(!mailPart.isMultipart) {
+                    processor.processPart(null, null, null);
+                    return;
+                }
+                int partNumber = (Integer)tokens.get(i);
+                Multipart multipart = (Multipart)part.getContent();
+                if(multipart.getCount() - 1 < partNumber) {
+                    processor.processPart(null, null, null);
+                    return;
+                }
+                part = multipart.getBodyPart(partNumber);
+            }
+
+            processPart(part, path, processor::processPart);
+        });
+
+        if(!found) processor.processPart(null, null, null);
+    }
+
+    private static void processPart(Part part, String path, MailPartProcessor processor)
             throws MessagingException, IOException {
 
         MailPart mailPart = MailPart.getSinglePartInfo(part, path);
 
         if(mailPart.isMultipart) {
-            getMultipart(mailPart, (Multipart)part.getContent(), path, processor);
+            processMultipart(mailPart, (Multipart)part.getContent(), path, processor);
         } else {
-            getSinglePart(mailPart, part, path, processor);
+            processor.processPart(mailPart, part, path);
         }
     }
 
-//    private static InputStream getSinglePart(MailPart mailPart, Part part, HttpServletResponse response, String path)
-//            throws IOException, MessagingException {
-//
-//        response.addHeader("Content-Type", mailPart.contentTypeHeaderValue());
-//        response.addHeader("Content-Disposition", mailPart.contentDispositionHeaderValue());
-//
-//        return mailPart.contentType.equals("text/html") && !mailPart.attachment?
-//                new HtmlEscaperReader(Charset.forName(mailPart.charset), part.getInputStream(), MailPart.hrefMappings(part, path)):
-//                part.getInputStream();
-//    }
-    private static void getSinglePart(MailPart mailPart, Part part, String path, MailPartProcessor processor)
-            throws IOException, MessagingException {
-
-        processor.processPart(mailPart, part, path);
-    }
-
-//    private static InputStream getMultipart(MailPart mailPart, Multipart multipart, HttpServletResponse response, String path)
-//            throws IOException, MessagingException {
-//        switch(mailPart.contentType) {
-//            case "multipart/alternative":
-//                return getMultipartAlternative(multipart, response, path);
-//            default:
-//                return getMultipartMixed(multipart, response, path);
-//        }
-//
-//    }
-    private static void getMultipart(MailPart mailPart, Multipart multipart, String path, MailPartProcessor processor)
-            throws IOException, MessagingException {
+    private static void processMultipart(MailPart mailPart, Multipart multipart, String path,
+            MailPartProcessor processor) throws IOException, MessagingException {
         switch(mailPart.contentType) {
             case "multipart/alternative":
-                getMultipartAlternative(multipart, path, processor);
+                processMultipartAlternative(multipart, path, processor);
                 break;
             default:
-                getMultipartMixed(multipart, path, processor);
+                processMultipartMixed(multipart, path, processor);
         }
 
     }
 
-//    private static InputStream getMultipartAlternative(Multipart multipart, HttpServletResponse response, String path)
-//            throws MessagingException, IOException {
-//        int textPlain = 0;
-//        MailPart textPlainMailPart = null;
-//        int count = multipart.getCount();
-//        for(int i = 0; i < count; i++) {
-//            BodyPart part = multipart.getBodyPart(i);
-//            MailPart mailPart = MailPart.getSinglePartInfo(part, path);
-//            switch (mailPart.contentType) {
-//                case "text/html":
-//                    if(path != null) path += "," + i;
-//                    return getSinglePart(mailPart, part, response, path);
-//                case "text/plain":
-//                    textPlain = i;
-//                    textPlainMailPart = mailPart;
-//                    break;
-//                default:
-//                    if(mailPart.isMultipart) {
-//                        if(path != null) path += "," + i;
-//                        return getMultipart(mailPart, (Multipart)part.getContent(), response, path);
-//                    }
-//            }
-//        }
-//        if(path != null) path += "," + textPlain;
-//        return getSinglePart(textPlainMailPart, multipart.getBodyPart(textPlain), response, path);
-//    }
-    private static void getMultipartAlternative(Multipart multipart, String path, MailPartProcessor processor)
+    private static void processMultipartAlternative(Multipart multipart, String path, MailPartProcessor processor)
             throws MessagingException, IOException {
         int textPlain = 0;
         MailPart textPlainMailPart = null;
@@ -175,7 +134,7 @@ class MailContentProcessor {
             switch (mailPart.contentType) {
                 case "text/html":
                     if(path != null) path += "," + i;
-                    getSinglePart(mailPart, part, path, processor);
+                    processor.processPart(mailPart, part, path);
                     return;
                 case "text/plain":
                     textPlain = i;
@@ -184,30 +143,20 @@ class MailContentProcessor {
                 default:
                     if(mailPart.isMultipart) {
                         if(path != null) path += "," + i;
-                        getMultipart(mailPart, (Multipart)part.getContent(), path, processor);
+                        processMultipart(mailPart, (Multipart)part.getContent(), path, processor);
                         return;
                     }
             }
         }
         if(path != null) path += "," + textPlain;
-        getSinglePart(textPlainMailPart, multipart.getBodyPart(textPlain), path, processor);
+        processor.processPart(textPlainMailPart, multipart.getBodyPart(textPlain), path);
     }
 
-//    private static InputStream getMultipartMixed(Multipart multipart, HttpServletResponse response, String path)
-//            throws MessagingException, IOException {
-//        // TODO verify that the main part will always be #0
-//        if(path != null) path += ",0";
-//        return getPart(multipart.getBodyPart(0), response, path);
-//    }
-    private static void getMultipartMixed(Multipart multipart, String path, MailPartProcessor processor)
+    private static void processMultipartMixed(Multipart multipart, String path, MailPartProcessor processor)
             throws MessagingException, IOException {
         // TODO verify that the main part will always be #0
         if(path != null) path += ",0";
-        getPart(multipart.getBodyPart(0), path, processor);
-    }
-
-    private static void setNotFound(HttpServletResponse response) {
-        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        processPart(multipart.getBodyPart(0), path, processor);
     }
 
     private static void transfer(InputStream input, OutputStream output) throws IOException {
@@ -218,33 +167,8 @@ class MailContentProcessor {
         }
     }
 
-    private static List<Object> getTokens(String mailReference) {
-        int charPos = mailReference.indexOf(MailMessage.SEPARATOR);
-        if(charPos == -1) return null;
-        charPos = mailReference.indexOf(MailMessage.SEPARATOR, charPos + 1);
-        List<Object> results = new ArrayList<>();
-        if(charPos == -1) {
-            results.add(mailReference);
-            return results;
-        }
-        results.add(mailReference.substring(0, charPos));
-        int index = 0;
-        while(++charPos < mailReference.length()) {
-            char ch = mailReference.charAt(charPos);
-            if(ch >= '0' && ch <= '9') {
-                index = index * 10 + ch - '0';
-            } else {
-                results.add(index);
-                index = 0;
-            }
-        }
-        results.add(index);
-        return results;
-    }
-
     @FunctionalInterface
     private interface MailPartProcessor {
-
         void processPart(MailPart mailPart, Part part, String path) throws IOException, MessagingException;
     }
 }

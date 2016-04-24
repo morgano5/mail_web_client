@@ -23,7 +23,7 @@ public class MailPart {
 
     private MailPart(Part part, String path, Level level) throws IOException, MessagingException {
 
-        this.path = path;
+        this.path = path != null? path: "";
 
         String contentId = null;
         String contentType = DEFAULT_CONTENT_TYPE;

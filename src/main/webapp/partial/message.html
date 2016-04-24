@@ -2,4 +2,6 @@
 
     <iframe data-ng-src="{{ messageUrl() }}" style="width: 90%; height: 90%;"></iframe>
 
+    <div data-ng-repeat="attachment in attachments">ATTACHMENT: <a href="api/mail/messages/{{ attachment.path }}">{{ attachment.filename }}</a></div>
+
 </div>
