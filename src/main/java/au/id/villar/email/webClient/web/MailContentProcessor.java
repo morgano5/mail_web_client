@@ -168,71 +168,85 @@ class MailContentProcessor {
     }
 
 
-    private static void send() {
-        MimeMessage message = new MimeMessage(session);
-        message.setFrom(new InternetAddress(from));
-        message.addRecipient(Message.RecipientType.TO,
-                new InternetAddress(to));
+    // delete message
 
-        message.setSubject("Peace ", "UTF-8");
-// Create the message part
-        BodyPart messageBodyPart = new MimeBodyPart();
+    // add draft
+    // edit draft
+    // delete draft
+    // add attachment
+    // remove attachment
+    // send message
 
-// Fill the message body
-        messageBodyPart.setContent("Hello attachment", "text/html; charset=UTF-8");
 
-        Multipart multipart = new MimeMultipart();
-        multipart.addBodyPart(messageBodyPart);
-
-        String[] filename = {"C:/Users/Dake/Desktop/music.mp3"};
-        for (int i = 0; i < filename.length; i++) {
-            // Part two is attachment
-            messageBodyPart = new MimeBodyPart();
-            DataSource source = new FileDataSource(filename[i]);
-            messageBodyPart.setDataHandler(new DataHandler(source));
-            // messageBodyPart.setFileName(filename[i]);
-            //messageBodyPart.setHeader("Content-Type", "text/plain; charset=UTF-8; name="+MimeUtility.encodeText(filename[i]));
-            // messageBodyPart.setHeader("Content-ID", filename[i]);
-            messageBodyPart.setFileName(MimeUtility.encodeText(filename[i], "UTF-8", null)); //encode filename
-            //bodyPart.setFileName(MimeUtility.encodeText(attachment.getName(), "UTF-8", null));
-            multipart.addBodyPart(messageBodyPart);
-        }
-        // Put parts in message
-        message.setContent(multipart);
-        //set the time
-        DateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:MM:SS");
-        Date date = new Date();
-        String sentDate = df.format(date);
-        Date dd = (Date) df.parse(sentDate);
-        message.setSentDate(date);
-
-        // Send the message
-        Transport.send(message);
-        System.out.println("Message sent...");
-        // Copy message to "Sent Items" folder as read
-        Store store = session.getStore("imap");
-        store.connect(host, "user", "userpwd");
-
-        Folder folder = (Folder) store.getFolder("Sent");
-        if (!folder.exists()) {
-            folder.create(Folder.HOLDS_MESSAGES);
-        }
-        folder.open(Folder.READ_WRITE);
-        System.out.println("appending...");
-        // folder.appendMessages(new Message[]{message});
-        try {
-
-            folder.appendMessages(new Message[]{message});
-            // Message[] msgs = folder.getMessages();
-            message.setFlag(FLAGS.Flag.RECENT, true);
-
-        } catch (Exception ignore) {
-            System.out.println("error processing message " + ignore.getMessage());
-        } finally {
-            store.close();
-            // folder.close(false);
-        }
+    public Object test(Object test) {
+        return null;
     }
+
+//    private static void send() {
+//        MimeMessage message = new MimeMessage(session);
+//        message.setFrom(new InternetAddress(from));
+//        message.addRecipient(Message.RecipientType.TO,
+//                new InternetAddress(to));
+//
+//        message.setSubject("Peace ", "UTF-8");
+//// Create the message part
+//        BodyPart messageBodyPart = new MimeBodyPart();
+//
+//// Fill the message body
+//        messageBodyPart.setContent("Hello attachment", "text/html; charset=UTF-8");
+//
+//        Multipart multipart = new MimeMultipart();
+//        multipart.addBodyPart(messageBodyPart);
+//
+//        String[] filename = {"C:/Users/Dake/Desktop/music.mp3"};
+//        for (int i = 0; i < filename.length; i++) {
+//            // Part two is attachment
+//            messageBodyPart = new MimeBodyPart();
+//            DataSource source = new FileDataSource(filename[i]);
+//            messageBodyPart.setDataHandler(new DataHandler(source));
+//            // messageBodyPart.setFileName(filename[i]);
+//            //messageBodyPart.setHeader("Content-Type", "text/plain; charset=UTF-8; name="+MimeUtility.encodeText(filename[i]));
+//            // messageBodyPart.setHeader("Content-ID", filename[i]);
+//            messageBodyPart.setFileName(MimeUtility.encodeText(filename[i], "UTF-8", null)); //encode filename
+//            //bodyPart.setFileName(MimeUtility.encodeText(attachment.getName(), "UTF-8", null));
+//            multipart.addBodyPart(messageBodyPart);
+//        }
+//        // Put parts in message
+//        message.setContent(multipart);
+//        //set the time
+//        DateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:MM:SS");
+//        Date date = new Date();
+//        String sentDate = df.format(date);
+//        Date dd = (Date) df.parse(sentDate);
+//        message.setSentDate(date);
+//
+//        // Send the message
+//        Transport.send(message);
+//        System.out.println("Message sent...");
+//        // Copy message to "Sent Items" folder as read
+//        Store store = session.getStore("imap");
+//        store.connect(host, "user", "userpwd");
+//
+//        Folder folder = (Folder) store.getFolder("Sent");
+//        if (!folder.exists()) {
+//            folder.create(Folder.HOLDS_MESSAGES);
+//        }
+//        folder.open(Folder.READ_WRITE);
+//        System.out.println("appending...");
+//        // folder.appendMessages(new Message[]{message});
+//        try {
+//
+//            folder.appendMessages(new Message[]{message});
+//            // Message[] msgs = folder.getMessages();
+//            message.setFlag(FLAGS.Flag.RECENT, true);
+//
+//        } catch (Exception ignore) {
+//            System.out.println("error processing message " + ignore.getMessage());
+//        } finally {
+//            store.close();
+//            // folder.close(false);
+//        }
+//    }
 
 
     @FunctionalInterface

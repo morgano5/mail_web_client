@@ -82,6 +82,29 @@ public class Mailbox {
         return holder.obj;
     }
 
+    public void deleteMessage(String mailMessageId) throws IOException, MessagingException {
+        String fullFolderName = MailMessage.extractFolder(mailMessageId);
+        long uid = MailMessage.extractUID(mailMessageId);
+        runWithStore(store -> {
+            IMAPFolder folder = (IMAPFolder)store.getFolder(fullFolderName);
+            if(folder == null) return;
+
+        });
+    }
+
+
+    // set message flags
+    // get message flags
+    // move message
+    // delete message
+
+    // add draft
+    // edit draft
+    // delete draft
+    // add attachment
+    // remove attachment
+    // send message
+
     public boolean processMessage(String mailMessageId, MessageProcess process) throws MessagingException, IOException {
         String fullFolderName = MailMessage.extractFolder(mailMessageId);
         long uid = MailMessage.extractUID(mailMessageId);
