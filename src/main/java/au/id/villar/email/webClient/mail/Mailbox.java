@@ -4,14 +4,14 @@ import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IMAPMessage;
 
 import javax.mail.*;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import java.io.IOException;
+import java.util.Map;
 
 public class Mailbox {
 
-    @FunctionalInterface
-    public interface MessageProcess {
-        void process(IMAPMessage message) throws MessagingException, IOException;
-    }
+    @FunctionalInterface public interface MessageProcess { void process(IMAPMessage message) throws MessagingException, IOException; }
 
     private String username;
     private String password;
@@ -82,15 +82,71 @@ public class Mailbox {
         return holder.obj;
     }
 
+
+
+
+
+
+
+
+
+    public MailMessage send(String mailMessageId) throws IOException, MessagingException {
+        ObjectHolder<MimeMessage> messageHolder = new ObjectHolder<>();
+        ObjectHolder<MailMessage> mailMessageHolder = new ObjectHolder<>();
+
+        processMessage(mailMessageId, message -> {
+            messageHolder.obj = new MimeMessage(message);
+        });
+
+        Transport.send(messageHolder.obj, username, password);
+
+        String fullFolderName = "Sent";//MailMessage.extractFolder(mailMessageId);
+        runWithFolder(fullFolderName, Folder.READ_WRITE, false, folder -> {
+            Message[] result = folder.addMessages(new Message[] {messageHolder.obj});
+            mailMessageHolder.obj = result[0] != null? new MailMessage(fullFolderName, folder.getUID(result[0])): null;
+        });
+
+        deleteMessage(mailMessageId);
+
+        return mailMessageHolder.obj;
+
+    }
+
+    public MailMessage addMessage(String fullFolderName, Map<String, String> headers, String body)
+            throws MessagingException, IOException {
+
+        Message message = new MimeMessage(session);
+        message.setFrom(new InternetAddress("rafael@villar.me"));
+        message.setRecipient(Message.RecipientType.TO, new InternetAddress("morgano5@gmail.com"));
+        message.setSubject("testing subject");
+
+//        MimeBodyPart bodyPart = new MimeBodyPart();
+//        bodyPart.setText(body);
+
+        message.addHeader("Content-type", "text/plain");
+        message.setText(body);
+
+        ObjectHolder<MailMessage> mailMessageHolder = new ObjectHolder<>();
+        runWithFolder(fullFolderName, Folder.READ_WRITE, false, folder -> {
+            Message[] result = folder.addMessages(new Message[] {message});
+            mailMessageHolder.obj = result[0] != null? new MailMessage(fullFolderName, folder.getUID(result[0])): null;
+        });
+        return mailMessageHolder.obj;
+    }
+
     public void deleteMessage(String mailMessageId) throws IOException, MessagingException {
         String fullFolderName = MailMessage.extractFolder(mailMessageId);
         long uid = MailMessage.extractUID(mailMessageId);
-        runWithStore(store -> {
-            IMAPFolder folder = (IMAPFolder)store.getFolder(fullFolderName);
-            if(folder == null) return;
-
+        runWithFolder(fullFolderName, Folder.READ_WRITE, true, (folder) -> {
+            Message message = folder.getMessageByUID(uid);
+            if(message == null) return;
+            message.setFlag(Flags.Flag.DELETED, true);
         });
     }
+
+    // add folder
+    // delete folder
+    // modify folder (name, flags, ...)
 
 
     // set message flags
@@ -111,15 +167,11 @@ public class Mailbox {
         ObjectHolder<Boolean> found = new ObjectHolder<>();
 
         found.obj = false;
-        runWithStore(store -> {
-            IMAPFolder folder = (IMAPFolder)store.getFolder(fullFolderName);
-            if(folder == null) return;
-            runWithFolder(folder, Folder.READ_ONLY, false, () -> {
-                IMAPMessage message = (IMAPMessage)folder.getMessageByUID(uid);
-                if(message == null) return;
-                found.obj = true;
-                process.process(message);
-            });
+        runWithFolder(fullFolderName, Folder.READ_ONLY, false, (folder) -> {
+            IMAPMessage message = (IMAPMessage)folder.getMessageByUID(uid);
+            if(message == null) return;
+            found.obj = true;
+            process.process(message);
         });
         return found.obj;
     }
@@ -178,6 +230,16 @@ public class Mailbox {
         return mailSubFolders;
     }
 
+    private void runWithFolder(String fullFolderName, int mode, boolean expunge, MailOperation2 operation)
+            throws MessagingException, IOException {
+        runWithStore(store -> {
+            IMAPFolder folder = (IMAPFolder)store.getFolder(fullFolderName);
+            if(folder == null) return;
+            runWithObject(() -> { folder.open(mode); operation.doOperation(folder); }, () -> folder.close(expunge));
+
+        });
+    }
+
     private void runWithStore(StoreOperation operation) throws MessagingException, IOException {
 
         Store store = session.getStore("imap");
@@ -221,6 +283,8 @@ public class Mailbox {
     @FunctionalInterface private interface StoreOperation { void doOperation(Store store) throws MessagingException, IOException; }
 
     @FunctionalInterface private interface MailOperation { void doOperation() throws MessagingException, IOException; }
+
+    @FunctionalInterface private interface MailOperation2 { void doOperation(IMAPFolder folder) throws MessagingException, IOException; }
 
     @FunctionalInterface private interface MailClosing { void doClose() throws MessagingException; }
 

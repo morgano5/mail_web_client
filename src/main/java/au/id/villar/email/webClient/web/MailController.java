@@ -19,9 +19,9 @@ import java.io.IOException;
 import java.util.List;
 
 @Controller("/mail")
-public class MailFolderController {
+public class MailController {
 
-    private static final Logger LOG = Logger.getLogger(MailFolderController.class);
+    private static final Logger LOG = Logger.getLogger(MailController.class);
 
     private MailboxService service;
 
@@ -98,12 +98,21 @@ public class MailFolderController {
         }
     }
 
+
+
+
+
+
     @Permissions(Role.MAIL_USER)
-    @RequestMapping(value = "/mail/test", method = RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public @ResponseBody Object test(UserPasswordHolder userPassword, @RequestBody Object body) {
+    @RequestMapping(value = "/mail/test", method = RequestMethod.GET,
+            //consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody Object test(UserPasswordHolder userPassword/*, @RequestBody Object body*/) {
         try {
             Mailbox mailbox = service.getMailbox(userPassword.getUsername(), userPassword.getPassword());
-            return new MailContentProcessor(mailbox).test(body);
+            return mailbox.send("RHJhZnRz,3");
+//            return mailbox.addMessage("Drafts", null, "Hola mundo");
+////            return new MailContentProcessor(mailbox).test(body);
         } catch (Exception e) {
             LOG.error("Error getting attachments: " + e.getMessage(), e);
             throw new InternalServerErrorException();
