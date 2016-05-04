@@ -87,7 +87,7 @@ public class Mailbox {
 
 
 
-
+//-------------------------- TODO under intensive construction
 
 
     public MailMessage send(String mailMessageId) throws IOException, MessagingException {

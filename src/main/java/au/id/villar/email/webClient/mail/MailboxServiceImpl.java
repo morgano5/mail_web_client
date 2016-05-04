@@ -19,7 +19,6 @@ public class MailboxServiceImpl implements MailboxService {
         sessionConfig.setProperty("mail.smtp.socketFactory.port", "465");
         sessionConfig.setProperty("mail.smtp.socketFactory.fallback", "false");
         sessionConfig.setProperty("mail.smtp.host", host);
-//        sessionConfig.setProperty("mail.smtp.port", "465");
         session = Session.getDefaultInstance(sessionConfig);
     }
 
