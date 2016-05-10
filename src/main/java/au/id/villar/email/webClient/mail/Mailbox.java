@@ -2,6 +2,7 @@ package au.id.villar.email.webClient.mail;
 
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IMAPMessage;
+import com.sun.mail.imap.SortTerm;
 
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
@@ -49,7 +50,7 @@ public class Mailbox {
                 parent = parent.getParent();
             }
 
-            populateMessages(folder, mailFolder, startingPageIndex, pageLength);
+            populateMessages(folder, mailFolder/*, startingPageIndex, pageLength*/);
         });
 
         return mailFolder;
@@ -64,7 +65,7 @@ public class Mailbox {
             IMAPFolder folder = (IMAPFolder)store.getFolder(
                     new URLName("imap", host, 993, fullFolderName, username, password));
             populateMailFolder(folder, mailFolder);
-            populateMessages(folder, mailFolder, startingPageIndex, pageLength);
+            populateMessages(folder, mailFolder/*, startingPageIndex, pageLength*/);
         });
 
         return mailFolder;
@@ -185,18 +186,18 @@ public class Mailbox {
         mailFolder.setUnreadMessages(folder.getUnreadMessageCount());
     }
 
-    private void populateMessages(IMAPFolder folder, MailFolder mailFolder, int startingPageIndex, int pageLength)
+    private void populateMessages(IMAPFolder folder, MailFolder mailFolder/*, int startingPageIndex, int pageLength*/)
             throws MessagingException, IOException {
         if((folder.getType() & Folder.HOLDS_MESSAGES) != 0) runWithFolder(folder, Folder.READ_ONLY, false, () -> {
 
-            int start = startingPageIndex * pageLength + 1;
-            int end = start + pageLength - 1;
-            if (end > mailFolder.getTotalMessages()) end = mailFolder.getTotalMessages();
+//            int start = startingPageIndex * pageLength + 1;
+//            int end = start + pageLength - 1;
+//            if (end > mailFolder.getTotalMessages()) end = mailFolder.getTotalMessages();
             MailMessage[] mailMessages;
-            if (start > end) {
-                mailMessages = new MailMessage[0];
-            } else {
-                Message[] messages = folder.getMessages(start, end);
+//            if (start > end) {
+//                mailMessages = new MailMessage[0];
+//            } else {
+                Message[] messages = folder.getSortedMessages(new SortTerm[] {SortTerm.REVERSE, SortTerm.DATE}/*start, end*/);
                 mailMessages = new MailMessage[messages.length];
                 for (int i = 0; i < messages.length; i++) {
                     IMAPMessage message = (IMAPMessage)messages[i];
@@ -208,8 +209,10 @@ public class Mailbox {
                     mailMessages[i].setSubject(message.getSubject());
                     mailMessages[i].setSentDate(message.getSentDate());
                     mailMessages[i].setWithAttachments(MailMessage.attachmentsPresent(message));
+                    Flags flags = message.getFlags();
+                    mailMessages[i].setSeen(flags.contains(Flags.Flag.SEEN));
                 }
-            }
+//            }
             mailFolder.setPageMessages(mailMessages);
         });
 

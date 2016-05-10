@@ -18,6 +18,7 @@ public class MailMessage {
     private String[] from;
     private String subject;
     private Date sentDate;
+    private boolean seen;
     private boolean withAttachments;
 
     public MailMessage(String fullFolderName, long uid) {
@@ -54,6 +55,14 @@ public class MailMessage {
 
     public boolean isWithAttachments() {
         return withAttachments;
+    }
+
+    public boolean isSeen() {
+        return seen;
+    }
+
+    public void setSeen(boolean seen) {
+        this.seen = seen;
     }
 
     public void setWithAttachments(boolean hasAttachments) {
