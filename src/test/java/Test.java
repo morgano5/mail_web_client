@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.util.Base64;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.sun.mail.imap.*;
 import org.apache.commons.codec.digest.Crypt;
@@ -33,7 +35,7 @@ public class Test {
 		System.out.println(">> " + Base64.getUrlEncoder().encodeToString(raw));
 	}
 
-	public static void main(String[] args) throws IOException {
+	public static void main4(String[] args) throws IOException {
 
 		IMAPSClient client = new IMAPSClient("SSL", true);
 
@@ -45,7 +47,7 @@ public class Test {
 		System.out.println("<<< LOGIN");
 		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
 
-		client.select("INBOX.Archivo");
+		client.select("INBOX");
 		System.out.println("<<< SELECT");
 		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
 
@@ -66,4 +68,50 @@ public class Test {
 		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
 
 	}
+
+	private static final Pattern RESPONSE_LINE_PATTERN = Pattern.compile("([^ ]+) +([^ ]+) +(.*)\r\n");
+
+	public static void main(String[] args) throws IOException {
+
+		String headerOrder = "DATE";
+
+		IMAPSClient client = new IMAPSClient("SSL", true);
+		client.connect("mail.villar.id.au");
+		client.login("", "");
+
+		client.select("INBOX");
+		String selectResult = client.getReplyString();
+
+		int total = -1;
+		int recent = 0;
+
+		Matcher matcher = RESPONSE_LINE_PATTERN.matcher(selectResult);
+		while(matcher.find()) {
+
+			if(!matcher.group(1).equals("*")) break;
+
+			if(matcher.group(3).equals("EXISTS")) {
+				total = Integer.valueOf(matcher.group(2));
+				continue;
+			}
+
+			if(matcher.group(3).equals("RECENT")) {
+				recent = Integer.valueOf(matcher.group(2));
+			}
+
+		}
+
+
+		client.fetch("4,8,6"/*"1:" + total*/, "(FLAGS BODY[HEADER.FIELDS (" + headerOrder + ")])");
+		System.out.println("<<< FETCH");
+		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
+
+
+		client.logout();
+		client.disconnect();
+
+
+		System.out.println("TOTAL: " + total + ", RECENT: " + recent);
+	}
+
 }
