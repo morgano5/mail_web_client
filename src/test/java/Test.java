@@ -4,7 +4,11 @@ import javax.mail.Store;
 import javax.mail.URLName;
 import java.io.IOException;
 import java.net.Inet4Address;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Base64;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,10 +74,12 @@ public class Test {
 	}
 
 	private static final Pattern RESPONSE_LINE_PATTERN = Pattern.compile("([^ ]+) +([^ ]+) +(.*)\r\n");
+//	private static final Pattern FETCH_LINE_PATTERN = Pattern.compile("\\* ([0-9]+) FETCH .\\)\r\n");
+//	private static final Pattern DATE_PATTERN = Pattern.compile("(?:[A-Za-z]{3}, )?([0-9]+ [A-Za-z]{3} [0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4})");
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, ParseException {
 
-		String headerOrder = "DATE";
+		HeaderProcessor processor = new DateProcessor("DATE");
 
 		IMAPSClient client = new IMAPSClient("SSL", true);
 		client.connect("mail.villar.id.au");
@@ -102,9 +108,31 @@ public class Test {
 		}
 
 
-		client.fetch("4,8,6"/*"1:" + total*/, "(FLAGS BODY[HEADER.FIELDS (" + headerOrder + ")])");
+		client.fetch("1:" + total, "(FLAGS BODY[HEADER.FIELDS (" + processor.getHeaderName() + ")])");
+
 		System.out.println("<<< FETCH");
-		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
+		SimpleDateFormat dateFormatter = new SimpleDateFormat("d MMM yyyy HH:mm:ss Z");
+		for(String line: client.getReplyStrings()) {
+			if(line.startsWith("*")) {
+
+			} else if (line.isEmpty() || line.equals(")")) {
+
+			} else {
+
+
+
+				String value = line.substring(line.indexOf(':') + 1).trim();
+				char ch = value.charAt(0);
+				if(ch < '0' || ch > '9') value = value.substring(value.indexOf(' ') + 1);
+				if(value.charAt(value.length() - 1) == ')') value = value.substring(0, value.lastIndexOf(' '));
+				System.out.println(">>>> " + dateFormatter.parse(value));
+			}
+		}
+
+//		System.out.println(">>> " + client.getReplyString());
+
+		//Thu, 18 Sep 2014 20:43:53 +0000 (UTC)
+//		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
 
 
 		client.logout();
@@ -114,4 +142,38 @@ public class Test {
 		System.out.println("TOTAL: " + total + ", RECENT: " + recent);
 	}
 
+
+	interface HeaderProcessor<T> {
+
+		String getHeaderName();
+
+		T parseValue(String value);
+
+	}
+
+	static class DateProcessor implements HeaderProcessor<Date> {
+
+		private String headerName;
+		private SimpleDateFormat dateFormatter = new SimpleDateFormat();
+
+		public DateProcessor(String headerName) {
+			this.headerName = headerName;
+		}
+
+		@Override
+		public String getHeaderName() {
+			return headerName;
+		}
+
+		@Override
+		public Date parseValue(String value) {
+			// TODO implement
+			return null;
+		}
+
+		@Override
+		public int compare(Date o1, Date o2) {
+			return o1.compareTo(o2);
+		}
+	}
 }
