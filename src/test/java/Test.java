@@ -108,28 +108,29 @@ public class Test {
 		}
 
 
-		client.fetch("1:" + total, "(FLAGS BODY[HEADER.FIELDS (" + processor.getHeaderName() + ")])");
+		// DATE FROM SUBJECT
+		client.fetch("1:" + total, "(FLAGS BODY[HEADER.FIELDS (DATE FROM SUBJECT" + /*processor.getHeaderName() +*/ ")])");
 
 		System.out.println("<<< FETCH");
-		SimpleDateFormat dateFormatter = new SimpleDateFormat("d MMM yyyy HH:mm:ss Z");
-		for(String line: client.getReplyStrings()) {
-			if(line.startsWith("*")) {
+//		SimpleDateFormat dateFormatter = new SimpleDateFormat("d MMM yyyy HH:mm:ss Z");
+//		for(String line: client.getReplyStrings()) {
+//			if(line.startsWith("*")) {
+//
+//			} else if (line.isEmpty() || line.equals(")")) {
+//
+//			} else {
+//
+//
+//
+//				String value = line.substring(line.indexOf(':') + 1).trim();
+//				char ch = value.charAt(0);
+//				if(ch < '0' || ch > '9') value = value.substring(value.indexOf(' ') + 1);
+//				if(value.charAt(value.length() - 1) == ')') value = value.substring(0, value.lastIndexOf(' '));
+//				System.out.println(">>>> " + dateFormatter.parse(value));
+//			}
+//		}
 
-			} else if (line.isEmpty() || line.equals(")")) {
-
-			} else {
-
-
-
-				String value = line.substring(line.indexOf(':') + 1).trim();
-				char ch = value.charAt(0);
-				if(ch < '0' || ch > '9') value = value.substring(value.indexOf(' ') + 1);
-				if(value.charAt(value.length() - 1) == ')') value = value.substring(0, value.lastIndexOf(' '));
-				System.out.println(">>>> " + dateFormatter.parse(value));
-			}
-		}
-
-//		System.out.println(">>> " + client.getReplyString());
+		System.out.println(">>> " + client.getReplyString());
 
 		//Thu, 18 Sep 2014 20:43:53 +0000 (UTC)
 //		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
@@ -171,9 +172,5 @@ public class Test {
 			return null;
 		}
 
-		@Override
-		public int compare(Date o1, Date o2) {
-			return o1.compareTo(o2);
-		}
 	}
 }
