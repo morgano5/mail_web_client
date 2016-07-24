@@ -6,11 +6,11 @@ public interface TokenInfo {
 
     String getToken();
 
+    long getCreationTime();
+
     boolean containsAtLeastOne(Collection<String> roles);
 
     String getUsername();
 
     String getPassword();
-
-    long getCreationTime();
 }
