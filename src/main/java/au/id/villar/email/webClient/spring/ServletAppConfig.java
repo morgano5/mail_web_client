@@ -1,5 +1,7 @@
 package au.id.villar.email.webClient.spring;
 
+import au.id.villar.email.webClient.spring.config.AuthenticationArgumentResolver;
+import au.id.villar.email.webClient.spring.config.AuthenticationHandlerInterceptor;
 import au.id.villar.email.webClient.users.Role;
 import au.id.villar.email.webClient.users.User;
 import au.id.villar.email.webClient.users.UserService;
@@ -31,17 +33,14 @@ public class ServletAppConfig extends WebMvcConfigurationSupport {
 
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authenticationHandlerInterceptor());
+        registry.addInterceptor(
+                new AuthenticationHandlerInterceptor(
+                        tokenService(), permissionsResolver(), Permissions.class, "value", this));
     }
 
     @Override
     protected void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
         argumentResolvers.add(new AuthenticationArgumentResolver());
-    }
-
-    private AuthenticationHandlerInterceptor authenticationHandlerInterceptor() {
-        return new AuthenticationHandlerInterceptor(tokenService(), permissionsResolver(),
-                Permissions.class, "value", this);
     }
 
     private TokenService tokenService() {

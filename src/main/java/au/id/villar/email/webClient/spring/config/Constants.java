@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.tokens;
+package au.id.villar.email.webClient.spring.config;
 
 class Constants {
     static final String USER_PASSWORD_ATTR_NAME = "userPasswordHolder";
