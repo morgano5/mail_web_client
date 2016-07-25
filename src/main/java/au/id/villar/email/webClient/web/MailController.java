@@ -2,6 +2,7 @@ package au.id.villar.email.webClient.web;
 
 import au.id.villar.email.webClient.mail.MailPart;
 import au.id.villar.email.webClient.mail.Mailbox;
+import au.id.villar.email.webClient.spring.config.Permissions;
 import au.id.villar.email.webClient.users.Role;
 import au.id.villar.email.webClient.mail.MailFolder;
 import au.id.villar.email.webClient.mail.MailboxService;

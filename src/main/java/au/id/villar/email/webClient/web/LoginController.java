@@ -1,7 +1,7 @@
 package au.id.villar.email.webClient.web;
 
-import au.id.villar.email.webClient.tokens.Login;
-import au.id.villar.email.webClient.tokens.Logout;
+import au.id.villar.email.webClient.spring.config.Login;
+import au.id.villar.email.webClient.spring.config.Logout;
 import au.id.villar.email.webClient.tokens.UserPasswordHolder;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;

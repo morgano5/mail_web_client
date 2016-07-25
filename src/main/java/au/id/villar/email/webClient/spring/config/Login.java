@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.tokens;
+package au.id.villar.email.webClient.spring.config;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,5 +7,5 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface Logout {
+public @interface Login {
 }

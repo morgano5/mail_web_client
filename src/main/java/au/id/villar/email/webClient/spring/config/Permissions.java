@@ -1,4 +1,4 @@
-package au.id.villar.email.webClient.web;
+package au.id.villar.email.webClient.spring.config;
 
 import au.id.villar.email.webClient.users.Role;
 
