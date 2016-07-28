@@ -3,6 +3,7 @@ package au.id.villar.email.webClient.mail;
 import javax.mail.Session;
 import java.util.Properties;
 
+@Deprecated
 public class MailboxServiceImpl implements MailboxService {
 
     private Session session;

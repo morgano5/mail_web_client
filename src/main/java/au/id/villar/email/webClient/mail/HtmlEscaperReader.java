@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Deprecated
 // TODO optimize this entire class (loading an entire message in memory looks quite inefficient)
 public class HtmlEscaperReader extends InputStream {
 

@@ -10,6 +10,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 
+@Deprecated
 public class MailMessage {
 
     static final char SEPARATOR = ',';

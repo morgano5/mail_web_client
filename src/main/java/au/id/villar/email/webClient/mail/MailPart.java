@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Pattern;
 
+@Deprecated
 public class MailPart {
 
     private enum Level { PART_ONLY, PART_AND_CHILDREN, DEEP }

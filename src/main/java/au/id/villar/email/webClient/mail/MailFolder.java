@@ -1,5 +1,6 @@
 package au.id.villar.email.webClient.mail;
 
+@Deprecated
 public class MailFolder {
 
     private String name;

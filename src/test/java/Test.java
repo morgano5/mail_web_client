@@ -79,19 +79,26 @@ public class Test {
 
 	public static void main(String[] args) throws IOException, ParseException {
 
+		long start = System.currentTimeMillis();
+
+		String reply;
+
 		HeaderProcessor processor = new DateProcessor("DATE");
 
 		IMAPSClient client = new IMAPSClient("SSL", true);
 		client.connect("mail.villar.id.au");
-		client.login("", "");
+		System.out.println("CONNECT: " + client.getReplyString());
+		boolean result = client.login("", "");
+		System.out.println("LOGIN: (" + result + ") " + client.getReplyString());
 
 		client.select("INBOX");
-		String selectResult = client.getReplyString();
+		reply = client.getReplyString();
+		System.out.println("SELECT |" + reply);
 
 		int total = -1;
 		int recent = 0;
 
-		Matcher matcher = RESPONSE_LINE_PATTERN.matcher(selectResult);
+		Matcher matcher = RESPONSE_LINE_PATTERN.matcher(reply);
 		while(matcher.find()) {
 
 			if(!matcher.group(1).equals("*")) break;
@@ -111,36 +118,66 @@ public class Test {
 		// DATE FROM SUBJECT
 		client.fetch("1:" + total, "(FLAGS BODY[HEADER.FIELDS (DATE FROM SUBJECT" + /*processor.getHeaderName() +*/ ")])");
 
-		System.out.println("<<< FETCH");
-//		SimpleDateFormat dateFormatter = new SimpleDateFormat("d MMM yyyy HH:mm:ss Z");
-//		for(String line: client.getReplyStrings()) {
-//			if(line.startsWith("*")) {
+		result = client.select("INBOX");
+		System.out.println("SELECT: (" + result + ") " + client.getReplyString());
+//		String selectResult = client.getReplyString();
 //
-//			} else if (line.isEmpty() || line.equals(")")) {
+//		int total = -1;
+//		int recent = 0;
 //
-//			} else {
+//		Matcher matcher = RESPONSE_LINE_PATTERN.matcher(selectResult);
+//		while(matcher.find()) {
 //
+//			if(!matcher.group(1).equals("*")) break;
 //
-//
-//				String value = line.substring(line.indexOf(':') + 1).trim();
-//				char ch = value.charAt(0);
-//				if(ch < '0' || ch > '9') value = value.substring(value.indexOf(' ') + 1);
-//				if(value.charAt(value.length() - 1) == ')') value = value.substring(0, value.lastIndexOf(' '));
-//				System.out.println(">>>> " + dateFormatter.parse(value));
+//			if(matcher.group(3).equals("EXISTS")) {
+//				total = Integer.valueOf(matcher.group(2));
+//				continue;
 //			}
+//
+//			if(matcher.group(3).equals("RECENT")) {
+//				recent = Integer.valueOf(matcher.group(2));
+//			}
+//
 //		}
+//
+//
+//		// DATE FROM SUBJECT
+//		client.fetch("1:" + total, "(FLAGS BODY[HEADER.FIELDS (DATE FROM SUBJECT" + /*processor.getHeaderName() +*/ ")])");
+//
+//		System.out.println("<<< FETCH");
+////		SimpleDateFormat dateFormatter = new SimpleDateFormat("d MMM yyyy HH:mm:ss Z");
+////		for(String line: client.getReplyStrings()) {
+////			if(line.startsWith("*")) {
+////
+////			} else if (line.isEmpty() || line.equals(")")) {
+////
+////			} else {
+////
+////
+////
+////				String value = line.substring(line.indexOf(':') + 1).trim();
+////				char ch = value.charAt(0);
+////				if(ch < '0' || ch > '9') value = value.substring(value.indexOf(' ') + 1);
+////				if(value.charAt(value.length() - 1) == ')') value = value.substring(0, value.lastIndexOf(' '));
+////				System.out.println(">>>> " + dateFormatter.parse(value));
+////			}
+////		}
+//
+//		System.out.println(">>> " + client.getReplyString());
+//
+//		//Thu, 18 Sep 2014 20:43:53 +0000 (UTC)
+////		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
 
-		System.out.println(">>> " + client.getReplyString());
 
-		//Thu, 18 Sep 2014 20:43:53 +0000 (UTC)
-//		for(String reply: client.getReplyStrings()) System.out.println(">>> " + reply);
-
-
-		client.logout();
+		result = client.logout();
+		System.out.println("LOGOUT: (" + result + ") " + client.getReplyString());
 		client.disconnect();
+		System.out.println("DISCONNECT: " + client.getReplyString());
 
 
 		System.out.println("TOTAL: " + total + ", RECENT: " + recent);
+		System.out.println(">>" + (System.currentTimeMillis() - start));
 	}
 
 

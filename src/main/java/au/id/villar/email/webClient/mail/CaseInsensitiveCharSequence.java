@@ -1,5 +1,6 @@
 package au.id.villar.email.webClient.mail;
 
+@Deprecated
 class CaseInsensitiveCharSequence implements CharSequence {
     private final String name;
 

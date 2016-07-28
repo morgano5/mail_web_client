@@ -10,6 +10,7 @@ import javax.mail.internet.MimeMessage;
 import java.io.IOException;
 import java.util.Map;
 
+@Deprecated
 public class Mailbox {
 
     @FunctionalInterface public interface MessageProcess { void process(IMAPMessage message) throws MessagingException, IOException; }
