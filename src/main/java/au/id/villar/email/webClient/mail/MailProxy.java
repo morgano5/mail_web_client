@@ -21,6 +21,8 @@ public class MailProxy {
     private int uidValidity;
     private int nextUid;
 
+    private long lastFetch;
+
     public int getTotalMessages() {
         return totalMessages;
     }
@@ -68,6 +70,11 @@ public class MailProxy {
         this.readOnly = readOnly;
 
         parseSelectResponse();
+    }
+
+    public void TEMP() throws IOException { // TODO
+        client.noop();
+        for(String line: client.getReplyStrings()) System.out.println("NOOP - " + line); // TODO
     }
 
     public void close() throws IOException {

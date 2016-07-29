@@ -21,6 +21,25 @@ public class MailProxyTest {
         System.out.format("Total: %d%nNew: %d%nUnread: %d%n",
                 mail.getTotalMessages(), mail.getNewMessages(), mail.getUnreadMessages());
 
+
+
+        java.util.GregorianCalendar gc = new java.util.GregorianCalendar();
+        gc.set(java.util.Calendar.HOUR_OF_DAY, 17);
+        long finishTime = gc.getTimeInMillis();
+        while(System.currentTimeMillis() < finishTime) {
+            try {
+                Thread.sleep(10_000);
+                mail.TEMP();
+                if(Thread.interrupted()) break;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+
+
+
         mail.close();
     }
 
