@@ -5,8 +5,13 @@ import org.apache.commons.net.imap.IMAPSClient;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MailProxy {
+
+    private static final Pattern RESPONSE_LINE_PATTERN = Pattern.compile("^(\\*|\\+|[^ ]++) ++([^ ]++) *+(.*+)$");
+    private static final Pattern STATUS_RESPONSE_PATTERN = Pattern.compile("^\\[([^] ]++)( ++[^]]++)?\\]");
 
     private IMAPSClient client;
     private String username;
@@ -22,6 +27,8 @@ public class MailProxy {
     private int nextUid;
 
     private long lastFetch;
+    private boolean continuationRequest;
+    private int lastUnseen;
 
     public int getTotalMessages() {
         return totalMessages;
@@ -62,19 +69,47 @@ public class MailProxy {
 
         checkConected();
         boolean success = readOnly? client.examine(name): client.select(name);
-        String outcome = client.getReplyString();
-        if(!success)
+        if(success) {
+            this.currentFolder = name;
+            this.readOnly = readOnly;
+            parseResponse();
+
+            success = client.search("UNSEEN");
+        }
+        if(success) {
+            for(String line: client.getReplyStrings()){
+                int start = line.indexOf("SEARCH");
+                if(start > -1) {
+                    boolean inNumber = false;
+                    int total = 0;
+                    for(int i = start + 7; i < line.length(); i++) {
+                        char ch = line.charAt(i);
+                        if(!inNumber && ch >= '0' && ch <= '9') {
+                            inNumber = true;
+                            total++;
+                        } else if(inNumber && (ch < '0' || ch > '9')) {
+                            inNumber = false;
+                        }
+                    }
+                    this.unreadMessages = total;
+                }
+            }
+        }
+        if(!success) {
+            String outcome = client.getReplyString();
             throw new IOException("Error selecting folder: " + outcome.substring(outcome.indexOf("NO") + 3).trim());
+        }
 
-        currentFolder = name;
-        this.readOnly = readOnly;
-
-        parseSelectResponse();
     }
 
     public void TEMP() throws IOException { // TODO
         client.noop();
         for(String line: client.getReplyStrings()) System.out.println("NOOP - " + line); // TODO
+    }
+
+    public void TEMP2() throws IOException { // TODO
+        client.fetch("" + totalMessages, "(FLAGS INTERNALDATE BODY[HEADER.FIELDS (DATE FROM SUBJECT)])");
+        for(String line: client.getReplyStrings()) System.out.println("FETCH - " + line); // TODO
     }
 
     public void close() throws IOException {
@@ -100,68 +135,112 @@ public class MailProxy {
         return client.getState() == IMAP.IMAPState.AUTH_STATE || client.login(username, password);
     }
 
-    private void parseSelectResponse() throws IOException {
-        for(String line: client.getReplyStrings()) {
-            if(line.length() < 3) badLine(line);
-            if(line.charAt(0) != '*') continue;
-            char hint = line.charAt(2);
-            switch(hint) {
-                case 'O':
-                    parseSelectOkResponse(line);
-                    break;
-                case 'F':
-                    parseSelectFlagsResponse(line);
-                    break;
-                default:
-                    parseSelectSizeResponse(line);
-            }
-        }
+    private void parseResponse() throws IOException {
+        continuationRequest = false;
+        for(String line: client.getReplyStrings()) parseLine(line);
     }
 
-    private void parseSelectOkResponse(String line) throws IOException {
-        if(!follows("OK ", line, 2) || line.length() < 6 || line.charAt(5) != '[') badLine(line);
-        int limitIndex = line.indexOf(']', 2);
-        if(limitIndex == -1) badLine(line);
 
-        if(follows("UNSEEN", line, 6)) {
-            System.out.format("First unseen: %d%n", readNumber(line, 13, limitIndex)); // TODO
+
+
+
+
+    private void parseLine(String line) throws IOException {
+        int responseStart = line.indexOf(' ');
+        if(responseStart < 0) badLine(line);
+
+        Matcher matcher = RESPONSE_LINE_PATTERN.matcher(line);
+        if(!matcher.matches()) badLine(line);
+
+        String type = matcher.group(1);
+
+        if("+".equals(type)) {
+            continuationRequest = true;
             return;
         }
 
-        if(follows("UIDVALIDITY", line, 6)) {
-            uidValidity = readNumber(line, 18, limitIndex);
-            return;
-        }
+        processCommand(matcher.group(2), matcher.group(3), !"*".equals(type));
 
-        if(follows("UIDNEXT", line, 6)) {
-            nextUid = readNumber(line, 14, limitIndex);
-            return;
-        }
-
-        warningLine(line);
     }
 
-    private void parseSelectFlagsResponse(String line) throws IOException {
-        if(!follows("FLAGS ", line, 2)) badLine(line);
-        warningLine(line);
+    private void processCommand(String firstAtom, String restOfLine, boolean tagged) throws IOException {
+
+        switch(firstAtom) {
+            case "OK":
+                parseOkResponse(restOfLine, tagged);
+                break;
+            case "FLAGS":
+                parseFlagsResponse(restOfLine, tagged);
+                break;
+            default:
+                if(isNumber(firstAtom)) {
+                    int number = readNumber(firstAtom);
+                    parseSizeResponse(number, restOfLine);
+                } else {
+                    warningLine(firstAtom + " " + restOfLine);
+                }
+        }
+
     }
 
-    private void parseSelectSizeResponse(String line) throws IOException {
-        int spaceIndex = line.indexOf(' ', 2);
-        if(spaceIndex == -1) badLine(line);
-        int number = readNumber(line, 2, spaceIndex);
+    private void parseOkResponse(String restOfLine, boolean tagged) throws IOException {
 
-        if(follows("EXISTS", line, spaceIndex + 1) && line.endsWith("EXISTS")) {
+        if(tagged) { warningLine("TAG OK " + restOfLine); return; } // TODO
+
+        Matcher matcher = STATUS_RESPONSE_PATTERN.matcher(restOfLine);
+        if(!matcher.find()) return;
+
+        switch(matcher.group(1)) {
+            case "UNSEEN":
+                lastUnseen = readNumber(matcher.group(2).trim());
+                return;
+            case "UIDVALIDITY":
+                uidValidity = readNumber(matcher.group(2).trim());
+                return;
+            case "UIDNEXT":
+                nextUid = readNumber(matcher.group(2).trim());
+                return;
+        }
+
+        warningLine("* OK " + restOfLine);
+    }
+
+    private void parseFlagsResponse(String line, boolean tagged) throws IOException {
+        // TODO
+        warningLine("FLAGS " + line);
+    }
+
+    private void parseSizeResponse(int number, String type) throws IOException {
+        // TODO
+
+        if("EXISTS".equals(type)) {
             this.totalMessages = number;
             return;
         }
 
-        if(follows("RECENT", line, spaceIndex + 1) && line.endsWith("RECENT")) {
+        if("RECENT".equals(type)) {
             this.newMessages = number;
             return;
         }
 
-        warningLine(line);
+        warningLine(number + ' ' + type);
+    }
+
+    private boolean isNumber(String strNumber) {
+        char ch;
+        for(int pos = 0; pos < strNumber.length(); pos++)
+            if((ch = strNumber.charAt(pos)) < '0' || ch > '9') return false;
+        return true;
+    }
+
+    private int readNumber(String strNumber) throws IOException {
+        int number = 0;
+        int pos = 0;
+        char ch;
+        while(pos < strNumber.length() && (ch = strNumber.charAt(pos++)) >= '0' && ch <= '9')
+            number = number * 10 + ch - '0';
+        if(pos < strNumber.length()) throw new IOException("bad number: \"" + strNumber + "\"");
+        return number;
     }
 
     private int readNumber(String line, int fromIndex, int toIndex) throws IOException {

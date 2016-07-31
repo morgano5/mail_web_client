@@ -16,7 +16,10 @@ public class MailProxyTest {
 
         mail.configure(properties);
 
-        mail.setCurrentFolder("INBOX", true);
+        mail.setCurrentFolder("INBOX", false);
+
+
+//mail.TEMP2();
 
         System.out.format("Total: %d%nNew: %d%nUnread: %d%n",
                 mail.getTotalMessages(), mail.getNewMessages(), mail.getUnreadMessages());
@@ -24,12 +27,13 @@ public class MailProxyTest {
 
 
         java.util.GregorianCalendar gc = new java.util.GregorianCalendar();
-        gc.set(java.util.Calendar.HOUR_OF_DAY, 17);
+        gc.set(java.util.Calendar.HOUR_OF_DAY, 21);
         long finishTime = gc.getTimeInMillis();
         while(System.currentTimeMillis() < finishTime) {
             try {
                 Thread.sleep(10_000);
                 mail.TEMP();
+//                mail.TEMP2();
                 if(Thread.interrupted()) break;
             } catch (InterruptedException e) {
                 e.printStackTrace();
